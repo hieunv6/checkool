@@ -422,6 +422,24 @@ function formatPercent(value) {
   return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
 }
 
+function useIsNarrowViewport(maxWidth = 640) {
+  const [isNarrow, setIsNarrow] = useState(() =>
+    typeof window === "undefined" ? false : window.innerWidth < maxWidth
+  );
+
+  useEffect(() => {
+    function handleResize() {
+      setIsNarrow(window.innerWidth < maxWidth);
+    }
+
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [maxWidth]);
+
+  return isNarrow;
+}
+
 function validateForm(form, t) {
   const amount = Number(form.amount);
   const fee = Number(form.fee);
@@ -470,7 +488,7 @@ function LoadingSkeleton() {
 function ChartTooltip({ active, payload, label, currency, rate }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-lg border border-line bg-white p-3 text-sm shadow-lg">
+    <div className="max-w-[calc(100vw-2rem)] rounded-lg border border-line bg-white p-3 text-sm shadow-lg">
       <p className="font-semibold text-ink">{label}</p>
       {payload.map((item) => (
         <p key={item.dataKey} style={{ color: item.color }}>
@@ -652,6 +670,7 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const hasAutoRunRef = useRef(false);
+  const isNarrowChart = useIsNarrowViewport(640);
   const t = TRANSLATIONS[language] || TRANSLATIONS.vi;
   const selectedCoin =
     coins.find((coin) => coin.id === form.coinId) ||
@@ -760,6 +779,17 @@ export default function App() {
   }, [result]);
 
   const money = useCallback((value) => formatMoney(value, currency, usdVndRate), [currency, usdVndRate]);
+  const chartNumberFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat("en-US", {
+        notation: "compact",
+        maximumFractionDigits: isNarrowChart ? 0 : 1
+      }),
+    [isNarrowChart]
+  );
+  const chartMargin = isNarrowChart
+    ? { top: 8, right: 2, left: -22, bottom: 0 }
+    : { top: 12, right: 12, left: 0, bottom: 0 };
   const pnlTone = result?.dca.pnlUSD >= 0 ? "gain" : "loss";
   const shareUrl = buildShareUrl(form, currency, language);
 
@@ -930,19 +960,26 @@ export default function App() {
                     {t.currentBtc} {selectedCoin.symbol}: {money(result.currentPrice)}
                   </p>
                 </div>
-                <div className="h-[260px] w-full sm:h-[320px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData} margin={{ top: 12, right: 8, left: 0, bottom: 0 }}>
+                <div className="min-w-0 overflow-hidden rounded-md">
+                  <div className="h-[280px] min-w-0 sm:h-[320px]">
+                  <ResponsiveContainer width="100%" height="100%" debounce={50}>
+                    <LineChart data={chartData} margin={chartMargin}>
                       <CartesianGrid stroke="#E4E7EC" strokeDasharray="4 4" />
-                      <XAxis dataKey="date" minTickGap={28} tick={{ fontSize: 12, fill: "#667085" }} />
+                      <XAxis
+                        dataKey="date"
+                        interval="preserveStartEnd"
+                        minTickGap={isNarrowChart ? 44 : 28}
+                        tick={{ fontSize: isNarrowChart ? 10 : 12, fill: "#667085" }}
+                        tickLine={false}
+                        axisLine={{ stroke: "#E4E7EC" }}
+                      />
                       <YAxis
-                        width={72}
-                        tick={{ fontSize: 12, fill: "#667085" }}
+                        width={isNarrowChart ? 46 : 72}
+                        tick={{ fontSize: isNarrowChart ? 10 : 12, fill: "#667085" }}
+                        tickLine={false}
+                        axisLine={false}
                         tickFormatter={(value) =>
-                          new Intl.NumberFormat("en-US", {
-                            notation: "compact",
-                            maximumFractionDigits: 1
-                          }).format(currency === "VND" ? value * usdVndRate : value)
+                          chartNumberFormatter.format(currency === "VND" ? value * usdVndRate : value)
                         }
                       />
                       <Tooltip content={<ChartTooltip currency={currency} rate={usdVndRate} />} />
@@ -951,7 +988,7 @@ export default function App() {
                         dataKey="portfolioValue"
                         name={t.portfolioLine}
                         stroke="#0F766E"
-                        strokeWidth={3}
+                        strokeWidth={isNarrowChart ? 2 : 3}
                         dot={false}
                       />
                       <Line
@@ -959,11 +996,12 @@ export default function App() {
                         dataKey="invested"
                         name={t.investedLine}
                         stroke="#F59E0B"
-                        strokeWidth={2}
+                        strokeWidth={isNarrowChart ? 1.75 : 2}
                         dot={false}
                       />
                     </LineChart>
                   </ResponsiveContainer>
+                  </div>
                 </div>
               </section>
 

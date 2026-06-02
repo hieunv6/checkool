@@ -56,6 +56,12 @@ select {
   border-radius: 999px;
 }
 
+.chart-scroll .recharts-wrapper,
+.chart-scroll .recharts-surface {
+  max-width: none;
+  touch-action: pan-x pan-y;
+}
+
 @keyframes pulse {
   0% {
     background-position: 100% 50%;

@@ -791,10 +791,9 @@ export default function App() {
     ? { top: 8, right: 2, left: -22, bottom: 0 }
     : { top: 12, right: 12, left: 0, bottom: 0 };
   const chartScrollWidth = useMemo(() => {
-    if (!isNarrowChart) return "100%";
-    const pointWidth = form.frequency === "daily" ? 5 : form.frequency === "monthly" ? 18 : 10;
-    return `${Math.min(4200, Math.max(900, chartData.length * pointWidth))}px`;
-  }, [chartData.length, form.frequency, isNarrowChart]);
+    const pointWidth = form.frequency === "daily" ? 5 : form.frequency === "monthly" ? 22 : 12;
+    return `${Math.min(7200, Math.max(960, chartData.length * pointWidth))}px`;
+  }, [chartData.length, form.frequency]);
   const pnlTone = result?.dca.pnlUSD >= 0 ? "gain" : "loss";
   const shareUrl = buildShareUrl(form, currency, language);
 

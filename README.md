@@ -1,46 +1,46 @@
 # DCA BTC Calculator
 
-Web tool tinh toan va backtest chien luoc Dollar-Cost Averaging (DCA) cho Bitcoin bang du lieu lich su BTC/USDT tu Binance.
+A client-side web tool for calculating and backtesting a Bitcoin Dollar-Cost Averaging (DCA) strategy using historical BTC/USDT data from Binance.
 
-## Tinh nang
+## Features
 
-- Tinh DCA theo tan suat daily, weekly, biweekly, monthly.
-- Mo phong tu ngay bat dau den ngay ket thuc tuy chon.
-- Hien thi tong dau tu, tong BTC, gia von trung binh, gia tri hien tai, lai/lo va phan tram lai/lo.
-- So sanh DCA voi Lump Sum.
-- Bieu do gia tri danh muc va tong tien da dau tu bang Recharts.
-- Toggle hien thi USD hoac VND.
-- Chia se ket qua bang query params tren URL.
-- Xu ly edge cases: ngay tuong lai, amount <= 0, du lieu Binance truoc 2017-08-17, pagination > 1000 ngay, retry khi API bi rate limit.
+- Simulate BTC DCA with daily, weekly, biweekly, or monthly purchase schedules.
+- Choose a custom start date and end date.
+- View total invested, accumulated BTC, average cost, current value, profit/loss, and profit/loss percentage.
+- Compare DCA against a Lump Sum strategy.
+- Visualize portfolio value versus total invested with Recharts.
+- Toggle displayed monetary values between USD and VND.
+- Share results through URL query parameters.
+- Handles required edge cases: future dates, invalid purchase amount, Binance data before `2017-08-17`, pagination for ranges over 1,000 days, and API retry on rate limit.
 
-## Tech stack
+## Tech Stack
 
 - React 18
 - Vite
 - Tailwind CSS
 - Recharts
 - Binance Public REST API
-- exchangerate.host, co fallback `25400` VND/USD
+- exchangerate.host with a `25400` VND/USD fallback rate
 
-## Cai dat
+## Installation
 
 ```bash
 npm install
 ```
 
-## Chay local
+## Run Locally
 
 ```bash
 npm run dev
 ```
 
-Mac dinh Vite se mo tai:
+Vite normally serves the app at:
 
 ```text
 http://127.0.0.1:5173/
 ```
 
-Neu can bind ro host:
+To bind the host explicitly:
 
 ```bash
 npm run dev -- --host 127.0.0.1
@@ -52,52 +52,52 @@ npm run dev -- --host 127.0.0.1
 npm test
 ```
 
-Test hien tai tap trung vao engine tinh toan:
+Current tests focus on the calculation engine:
 
-- Sinh ngay mua theo weekly/monthly.
-- Monthly clamp ve ngay cuoi thang khi thang ngan hon.
-- Lay gia gan nhat truoc do khi thieu candle.
-- Tinh DCA.
-- Tinh Lump Sum.
+- Generating weekly and monthly purchase dates.
+- Clamping monthly purchases to the last day of shorter months.
+- Using the nearest previous close when a candle is missing.
+- Simulating DCA.
+- Simulating Lump Sum.
 
-## Build production
+## Production Build
 
 ```bash
 npm run build
 ```
 
-Output nam trong thu muc `dist/`, phu hop deploy len Cloudflare Pages, Netlify hoac static host tuong duong.
+The production output is generated in `dist/` and can be deployed to Cloudflare Pages, Netlify, or any equivalent static hosting provider.
 
-## URL state
+## URL State
 
-App doc state tu query params va tu dong tinh neu du thong tin:
+The app reads state from query parameters and auto-runs the calculation when enough inputs are present:
 
 ```text
 ?amount=100&freq=weekly&start=2021-01-01&end=2026-06-01&cur=USD
 ```
 
-Trong do:
+Parameters:
 
-- `amount`: so tien moi lan mua, tinh bang USD.
-- `freq`: `daily`, `weekly`, `biweekly`, hoac `monthly`.
-- `start`: ngay bat dau, format `YYYY-MM-DD`.
-- `end`: ngay ket thuc, format `YYYY-MM-DD`.
-- `cur`: `USD` hoac `VND`, chi anh huong hien thi.
+- `amount`: purchase amount per interval, in USD.
+- `freq`: `daily`, `weekly`, `biweekly`, or `monthly`.
+- `start`: start date in `YYYY-MM-DD` format.
+- `end`: end date in `YYYY-MM-DD` format.
+- `cur`: `USD` or `VND`; affects display only.
 
-## Cau truc chinh
+## Project Structure
 
 ```text
 src/
-  App.jsx             UI, form state, chart, URL sharing
-  dcaEngine.js        Pure logic + data fetching Binance/exchange rate
-  dcaEngine.test.js   Node test cho core calculation
-  main.jsx            React entrypoint
-  styles.css          Tailwind entry + base styles
+  App.jsx             UI, form state, chart, and URL sharing
+  dcaEngine.js        Pure calculation logic and Binance/exchange-rate fetching
+  dcaEngine.test.js   Node tests for core calculations
+  main.jsx            React entry point
+  styles.css          Tailwind entry and base styles
 ```
 
-## Luu y
+## Notes
 
-- App khong co backend, database, dang nhap, `localStorage` hay `sessionStorage`.
-- Toan bo tinh toan chay client-side.
-- Du lieu gia BTC dung close price daily cua Binance BTCUSDT.
-- Cong cu chi mang tinh minh hoa dua tren du lieu lich su, khong phai loi khuyen dau tu.
+- The app has no backend, database, authentication, `localStorage`, or `sessionStorage`.
+- All calculations run client-side.
+- BTC prices use the daily close price from Binance BTCUSDT candles.
+- This tool is for historical illustration only and is not investment advice.

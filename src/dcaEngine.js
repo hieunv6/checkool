@@ -1,4 +1,4 @@
-const BINANCE_BASE_URL = "https://api.binance.com/api/v3";
+const MARKET_DATA_BASE_URL = "https://api.binance.com/api/v3";
 const EXCHANGE_RATE_URL = "https://api.exchangerate.host/latest?base=USD&symbols=VND";
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -116,7 +116,7 @@ export async function fetchHistoricalPrices(startDate, endDate) {
       endTime: String(endTime),
       limit: "1000"
     });
-    const rows = await fetchWithRetry(`${BINANCE_BASE_URL}/klines?${params.toString()}`);
+    const rows = await fetchWithRetry(`${MARKET_DATA_BASE_URL}/klines?${params.toString()}`);
     if (!Array.isArray(rows) || rows.length === 0) break;
 
     for (const row of rows) {
@@ -136,7 +136,7 @@ export async function fetchHistoricalPrices(startDate, endDate) {
     .sort((a, b) => compareDateKeys(a.date, b.date));
 
   if (deduped.length === 0) {
-    throw new Error("Không lấy được dữ liệu giá BTC từ Binance.");
+    throw new Error("Không lấy được dữ liệu giá BTC.");
   }
 
   priceCache.set(cacheKey, deduped);
@@ -145,7 +145,7 @@ export async function fetchHistoricalPrices(startDate, endDate) {
 
 export async function fetchCurrentPrice() {
   if (currentPriceCache) return currentPriceCache;
-  const data = await fetchWithRetry(`${BINANCE_BASE_URL}/ticker/price?symbol=BTCUSDT`);
+  const data = await fetchWithRetry(`${MARKET_DATA_BASE_URL}/ticker/price?symbol=BTCUSDT`);
   const price = Number(data.price);
   if (!Number.isFinite(price) || price <= 0) {
     throw new Error("Giá BTC hiện tại không hợp lệ.");
@@ -179,27 +179,38 @@ export function getPriceOnOrBefore(prices, date) {
   return candidate;
 }
 
-export function simulateDCA(prices, purchaseDates, amountPerPurchase, currentPrice) {
+export function simulateDCA(prices, purchaseDates, amountPerPurchase, currentPrice, feePercent = 0) {
   const amount = Number(amountPerPurchase);
+  const feeRate = Number(feePercent) / 100;
   if (!Number.isFinite(amount) || amount <= 0) {
     throw new Error("Số tiền mỗi lần mua phải lớn hơn 0.");
+  }
+  if (!Number.isFinite(feeRate) || feeRate < 0 || feeRate >= 1) {
+    throw new Error("Phí giao dịch phải từ 0 đến dưới 100%.");
   }
 
   let totalInvested = 0;
   let totalBTC = 0;
+  let buyFees = 0;
   const snapshots = [];
 
   for (const date of purchaseDates) {
     const price = getPriceOnOrBefore(prices, date);
     if (!price) continue;
 
-    const btcBought = amount / price.close;
+    const fee = amount * feeRate;
+    const netAmount = amount - fee;
+    const btcBought = netAmount / price.close;
     totalBTC += btcBought;
     totalInvested += amount;
+    buyFees += fee;
+
+    const grossPortfolioValue = totalBTC * price.close;
+    const sellFee = grossPortfolioValue * feeRate;
     snapshots.push({
       date,
       totalInvested,
-      portfolioValue: totalBTC * price.close
+      portfolioValue: grossPortfolioValue - sellFee
     });
   }
 
@@ -207,13 +218,19 @@ export function simulateDCA(prices, purchaseDates, amountPerPurchase, currentPri
     throw new Error("Không có giao dịch hợp lệ trong khoảng thời gian đã chọn.");
   }
 
-  const currentValue = totalBTC * currentPrice;
+  const grossCurrentValue = totalBTC * currentPrice;
+  const sellFee = grossCurrentValue * feeRate;
+  const currentValue = grossCurrentValue - sellFee;
   const pnlUSD = currentValue - totalInvested;
 
   return {
     totalInvested,
     totalBTC,
     avgCost: totalInvested / totalBTC,
+    buyFees,
+    sellFee,
+    totalFees: buyFees + sellFee,
+    grossCurrentValue,
     currentValue,
     pnlUSD,
     pnlPercent: (pnlUSD / totalInvested) * 100,
@@ -221,19 +238,31 @@ export function simulateDCA(prices, purchaseDates, amountPerPurchase, currentPri
   };
 }
 
-export function simulateLumpSum(prices, totalInvested, startDate, currentPrice) {
+export function simulateLumpSum(prices, totalInvested, startDate, currentPrice, feePercent = 0) {
+  const feeRate = Number(feePercent) / 100;
+  if (!Number.isFinite(feeRate) || feeRate < 0 || feeRate >= 1) {
+    throw new Error("Phí giao dịch phải từ 0 đến dưới 100%.");
+  }
+
   const startPrice = getPriceOnOrBefore(prices, startDate) || prices[0];
   if (!startPrice) {
     throw new Error("Không có giá BTC tại ngày bắt đầu.");
   }
 
-  const btc = totalInvested / startPrice.close;
-  const value = btc * currentPrice;
+  const buyFee = totalInvested * feeRate;
+  const btc = (totalInvested - buyFee) / startPrice.close;
+  const grossValue = btc * currentPrice;
+  const sellFee = grossValue * feeRate;
+  const value = grossValue - sellFee;
   const pnlUSD = value - totalInvested;
   return {
     invested: totalInvested,
     btc,
     startPrice: startPrice.close,
+    buyFee,
+    sellFee,
+    totalFees: buyFee + sellFee,
+    grossValue,
     value,
     pnlUSD,
     pnlPercent: totalInvested > 0 ? (pnlUSD / totalInvested) * 100 : 0

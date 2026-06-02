@@ -39,8 +39,10 @@ const LANGUAGES = [
 
 const TRANSLATIONS = {
   vi: {
-    subtitle: "Backtest chiến lược mua BTC định kỳ bằng dữ liệu Binance.",
+    subtitle: "Backtest chiến lược mua BTC định kỳ bằng dữ liệu thị trường lịch sử.",
     amountLabel: "Số tiền mỗi lần mua (USD)",
+    feeLabel: "Phí mỗi lần mua/bán (%)",
+    feeHelp: "Áp dụng cho mỗi lần mua và phí bán ước tính khi tính giá trị hiện tại.",
     chartTitle: "Giá trị danh mục",
     comparisonTitle: "So sánh DCA vs Lump Sum",
     copyLink: "Copy link kết quả",
@@ -61,6 +63,7 @@ const TRANSLATIONS = {
     tableValue: "Giá trị hiện tại",
     totalInvested: "Tổng đầu tư",
     totalBtc: "Tổng BTC tích lũy",
+    totalFees: "Tổng phí ước tính",
     avgCost: "Giá vốn trung bình",
     currentValue: "Giá trị hiện tại",
     pnl: "Lãi/Lỗ",
@@ -75,6 +78,7 @@ const TRANSLATIONS = {
     },
     errors: {
       amount: "Số tiền mỗi lần mua phải lớn hơn 0.",
+      fee: "Phí giao dịch phải từ 0 đến dưới 100%.",
       dates: "Vui lòng chọn ngày bắt đầu và ngày kết thúc.",
       startFuture: "Ngày bắt đầu không được nằm trong tương lai.",
       endFuture: "Ngày kết thúc không được nằm trong tương lai.",
@@ -83,12 +87,14 @@ const TRANSLATIONS = {
       calculation: "Không thể tính toán lúc này. Vui lòng thử lại sau hoặc rút ngắn khoảng thời gian."
     },
     warnings: {
-      clampedStart: `BTCUSDT trên Binance bắt đầu từ ${EARLIEST_BTCUSDT_DATE}; đã dùng ngày này thay cho ngày bắt đầu.`
+      clampedStart: `Dữ liệu thị trường BTC bắt đầu từ ${EARLIEST_BTCUSDT_DATE}; đã dùng ngày này thay cho ngày bắt đầu.`
     }
   },
   en: {
-    subtitle: "Backtest recurring BTC purchases with Binance historical data.",
+    subtitle: "Backtest recurring BTC purchases with historical market data.",
     amountLabel: "Amount per purchase (USD)",
+    feeLabel: "Fee per buy/sell (%)",
+    feeHelp: "Applied to every purchase and the estimated sale fee used for current value.",
     chartTitle: "Portfolio value",
     comparisonTitle: "DCA vs Lump Sum",
     copyLink: "Copy result link",
@@ -109,6 +115,7 @@ const TRANSLATIONS = {
     tableValue: "Current value",
     totalInvested: "Total invested",
     totalBtc: "Accumulated BTC",
+    totalFees: "Estimated total fees",
     avgCost: "Average cost",
     currentValue: "Current value",
     pnl: "Profit/Loss",
@@ -123,6 +130,7 @@ const TRANSLATIONS = {
     },
     errors: {
       amount: "Amount per purchase must be greater than 0.",
+      fee: "Trading fee must be from 0 to under 100%.",
       dates: "Please choose both start and end dates.",
       startFuture: "Start date cannot be in the future.",
       endFuture: "End date cannot be in the future.",
@@ -131,12 +139,14 @@ const TRANSLATIONS = {
       calculation: "Unable to calculate right now. Please try again later or shorten the date range."
     },
     warnings: {
-      clampedStart: `Binance BTCUSDT data starts on ${EARLIEST_BTCUSDT_DATE}; this date was used as the start date.`
+      clampedStart: `BTC market data starts on ${EARLIEST_BTCUSDT_DATE}; this date was used as the start date.`
     }
   },
   es: {
-    subtitle: "Haz backtest de compras recurrentes de BTC con datos históricos de Binance.",
+    subtitle: "Haz backtest de compras recurrentes de BTC con datos históricos de mercado.",
     amountLabel: "Importe por compra (USD)",
+    feeLabel: "Comisión por compra/venta (%)",
+    feeHelp: "Se aplica a cada compra y a la comisión de venta estimada para el valor actual.",
     chartTitle: "Valor de la cartera",
     comparisonTitle: "DCA vs inversión única",
     copyLink: "Copiar enlace",
@@ -157,6 +167,7 @@ const TRANSLATIONS = {
     tableValue: "Valor actual",
     totalInvested: "Total invertido",
     totalBtc: "BTC acumulado",
+    totalFees: "Comisiones estimadas",
     avgCost: "Coste medio",
     currentValue: "Valor actual",
     pnl: "Ganancia/Pérdida",
@@ -171,6 +182,7 @@ const TRANSLATIONS = {
     },
     errors: {
       amount: "El importe por compra debe ser mayor que 0.",
+      fee: "La comisión debe estar entre 0 y menos de 100%.",
       dates: "Selecciona fecha inicial y fecha final.",
       startFuture: "La fecha inicial no puede estar en el futuro.",
       endFuture: "La fecha final no puede estar en el futuro.",
@@ -179,12 +191,14 @@ const TRANSLATIONS = {
       calculation: "No se puede calcular ahora. Inténtalo más tarde o acorta el rango de fechas."
     },
     warnings: {
-      clampedStart: `Los datos BTCUSDT de Binance empiezan el ${EARLIEST_BTCUSDT_DATE}; se usó esa fecha como inicio.`
+      clampedStart: `Los datos de mercado de BTC empiezan el ${EARLIEST_BTCUSDT_DATE}; se usó esa fecha como inicio.`
     }
   },
   zh: {
-    subtitle: "使用 Binance 历史数据回测定投 BTC 策略。",
+    subtitle: "使用历史市场数据回测定投 BTC 策略。",
     amountLabel: "每次购买金额 (USD)",
+    feeLabel: "每次买/卖手续费 (%)",
+    feeHelp: "适用于每次买入，并在计算当前价值时估算卖出手续费。",
     chartTitle: "组合价值",
     comparisonTitle: "DCA vs 一次性投资",
     copyLink: "复制结果链接",
@@ -205,6 +219,7 @@ const TRANSLATIONS = {
     tableValue: "当前价值",
     totalInvested: "总投入",
     totalBtc: "累计 BTC",
+    totalFees: "预计总手续费",
     avgCost: "平均成本",
     currentValue: "当前价值",
     pnl: "盈亏",
@@ -219,6 +234,7 @@ const TRANSLATIONS = {
     },
     errors: {
       amount: "每次购买金额必须大于 0。",
+      fee: "交易手续费必须大于等于 0 且小于 100%。",
       dates: "请选择开始日期和结束日期。",
       startFuture: "开始日期不能是未来日期。",
       endFuture: "结束日期不能是未来日期。",
@@ -227,12 +243,14 @@ const TRANSLATIONS = {
       calculation: "当前无法计算。请稍后重试或缩短日期范围。"
     },
     warnings: {
-      clampedStart: `Binance BTCUSDT 数据从 ${EARLIEST_BTCUSDT_DATE} 开始；已使用该日期作为开始日期。`
+      clampedStart: `BTC 市场数据从 ${EARLIEST_BTCUSDT_DATE} 开始；已使用该日期作为开始日期。`
     }
   },
   ja: {
-    subtitle: "Binance の履歴データで BTC の積立戦略をバックテストします。",
+    subtitle: "履歴市場データで BTC の積立戦略をバックテストします。",
     amountLabel: "1回あたりの購入額 (USD)",
+    feeLabel: "売買ごとの手数料 (%)",
+    feeHelp: "各購入と、現在価値を計算する際の推定売却手数料に適用されます。",
     chartTitle: "ポートフォリオ価値",
     comparisonTitle: "DCA vs 一括投資",
     copyLink: "結果リンクをコピー",
@@ -253,6 +271,7 @@ const TRANSLATIONS = {
     tableValue: "現在価値",
     totalInvested: "総投資額",
     totalBtc: "累積 BTC",
+    totalFees: "推定合計手数料",
     avgCost: "平均取得単価",
     currentValue: "現在価値",
     pnl: "損益",
@@ -267,6 +286,7 @@ const TRANSLATIONS = {
     },
     errors: {
       amount: "1回あたりの購入額は 0 より大きくしてください。",
+      fee: "取引手数料は 0 以上 100% 未満にしてください。",
       dates: "開始日と終了日を選択してください。",
       startFuture: "開始日に未来の日付は指定できません。",
       endFuture: "終了日に未来の日付は指定できません。",
@@ -275,12 +295,14 @@ const TRANSLATIONS = {
       calculation: "現在計算できません。後でもう一度試すか、期間を短くしてください。"
     },
     warnings: {
-      clampedStart: `Binance BTCUSDT データは ${EARLIEST_BTCUSDT_DATE} から始まるため、この日付を開始日として使用しました。`
+      clampedStart: `BTC 市場データは ${EARLIEST_BTCUSDT_DATE} から始まるため、この日付を開始日として使用しました。`
     }
   },
   ko: {
-    subtitle: "Binance 과거 데이터로 BTC 정기 매수 전략을 백테스트합니다.",
+    subtitle: "과거 시장 데이터로 BTC 정기 매수 전략을 백테스트합니다.",
     amountLabel: "회당 매수 금액 (USD)",
+    feeLabel: "매수/매도당 수수료 (%)",
+    feeHelp: "각 매수와 현재 가치 계산 시 추정 매도 수수료에 적용됩니다.",
     chartTitle: "포트폴리오 가치",
     comparisonTitle: "DCA vs 일시 매수",
     copyLink: "결과 링크 복사",
@@ -301,6 +323,7 @@ const TRANSLATIONS = {
     tableValue: "현재 가치",
     totalInvested: "총 투자금",
     totalBtc: "누적 BTC",
+    totalFees: "예상 총 수수료",
     avgCost: "평균 매수가",
     currentValue: "현재 가치",
     pnl: "손익",
@@ -315,6 +338,7 @@ const TRANSLATIONS = {
     },
     errors: {
       amount: "회당 매수 금액은 0보다 커야 합니다.",
+      fee: "거래 수수료는 0 이상 100% 미만이어야 합니다.",
       dates: "시작일과 종료일을 선택해 주세요.",
       startFuture: "시작일은 미래일 수 없습니다.",
       endFuture: "종료일은 미래일 수 없습니다.",
@@ -323,13 +347,14 @@ const TRANSLATIONS = {
       calculation: "지금 계산할 수 없습니다. 나중에 다시 시도하거나 기간을 줄여 주세요."
     },
     warnings: {
-      clampedStart: `Binance BTCUSDT 데이터는 ${EARLIEST_BTCUSDT_DATE}부터 시작되어 해당 날짜를 시작일로 사용했습니다.`
+      clampedStart: `BTC 시장 데이터는 ${EARLIEST_BTCUSDT_DATE}부터 시작되어 해당 날짜를 시작일로 사용했습니다.`
     }
   }
 };
 
 const DEFAULT_FORM = {
   amount: "100",
+  fee: "0",
   frequency: "weekly",
   startDate: "2021-01-01",
   endDate: todayKey()
@@ -341,6 +366,7 @@ function readInitialState() {
   return {
     form: {
       amount: params.get("amount") || DEFAULT_FORM.amount,
+      fee: params.get("fee") || DEFAULT_FORM.fee,
       frequency: params.get("freq") || DEFAULT_FORM.frequency,
       startDate: params.get("start") || DEFAULT_FORM.startDate,
       endDate: params.get("end") || DEFAULT_FORM.endDate
@@ -356,6 +382,7 @@ const initialState = readInitialState();
 function buildShareUrl(form, currency, language) {
   const params = new URLSearchParams({
     amount: form.amount,
+    fee: form.fee,
     freq: form.frequency,
     start: form.startDate,
     end: form.endDate,
@@ -387,8 +414,10 @@ function formatPercent(value) {
 
 function validateForm(form, t) {
   const amount = Number(form.amount);
+  const fee = Number(form.fee);
   const now = todayKey();
   if (!Number.isFinite(amount) || amount <= 0) return t.errors.amount;
+  if (!Number.isFinite(fee) || fee < 0 || fee >= 100) return t.errors.fee;
   if (!form.startDate || !form.endDate) return t.errors.dates;
   if (compareDateKeys(form.startDate, now) > 0) return t.errors.startFuture;
   if (compareDateKeys(form.endDate, now) > 0) return t.errors.endFuture;
@@ -482,8 +511,9 @@ export default function App() {
         fetchUsdVndRate()
       ]);
 
-      const dca = simulateDCA(prices, purchaseDates, Number(form.amount), currentPrice);
-      const lumpSum = simulateLumpSum(prices, dca.totalInvested, clampedStart, currentPrice);
+      const feePercent = Number(form.fee);
+      const dca = simulateDCA(prices, purchaseDates, Number(form.amount), currentPrice, feePercent);
+      const lumpSum = simulateLumpSum(prices, dca.totalInvested, clampedStart, currentPrice, feePercent);
 
       setUsdVndRate(rate);
       setWarning(localWarning);
@@ -606,6 +636,18 @@ export default function App() {
                 className="h-11 rounded-lg border border-line bg-white px-3 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
               />
             </Field>
+            <Field label={t.feeLabel}>
+              <input
+                type="number"
+                min="0"
+                max="99.99"
+                step="0.01"
+                value={form.fee}
+                onChange={(event) => updateForm("fee", event.target.value)}
+                className="h-11 rounded-lg border border-line bg-white px-3 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
+              />
+              <span className="text-xs font-normal text-muted">{t.feeHelp}</span>
+            </Field>
             <Field label={t.frequency}>
               <select
                 value={form.frequency}
@@ -661,6 +703,7 @@ export default function App() {
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <StatCard label={t.totalInvested} value={money(result.dca.totalInvested)} />
                 <StatCard label={t.totalBtc} value={formatBTC(result.dca.totalBTC)} />
+                <StatCard label={t.totalFees} value={money(result.dca.totalFees)} />
                 <StatCard label={t.avgCost} value={money(result.dca.avgCost)} />
                 <StatCard label={t.currentValue} value={money(result.dca.currentValue)} />
                 <StatCard label={t.pnl} value={money(result.dca.pnlUSD)} tone={pnlTone} />
@@ -725,11 +768,12 @@ export default function App() {
               <section className="rounded-lg border border-line bg-panel p-4 shadow-sm">
                 <h2 className="text-lg font-semibold text-ink">{t.comparisonTitle}</h2>
                 <div className="mt-4 overflow-x-auto">
-                  <table className="w-full min-w-[560px] border-collapse text-left text-sm">
+                  <table className="w-full min-w-[640px] border-collapse text-left text-sm">
                     <thead>
                       <tr className="border-b border-line text-muted">
                         <th className="py-3 pr-4 font-semibold">{t.tableStrategy}</th>
                         <th className="py-3 pr-4 font-semibold">BTC</th>
+                        <th className="py-3 pr-4 font-semibold">{t.totalFees}</th>
                         <th className="py-3 pr-4 font-semibold">{t.tableValue}</th>
                         <th className="py-3 pr-4 font-semibold">{t.pnl}</th>
                         <th className="py-3 font-semibold">{t.pnlPercent}</th>
@@ -737,18 +781,27 @@ export default function App() {
                     </thead>
                     <tbody>
                       {[
-                        ["DCA", result.dca.totalBTC, result.dca.currentValue, result.dca.pnlUSD, result.dca.pnlPercent],
+                        [
+                          "DCA",
+                          result.dca.totalBTC,
+                          result.dca.totalFees,
+                          result.dca.currentValue,
+                          result.dca.pnlUSD,
+                          result.dca.pnlPercent
+                        ],
                         [
                           "Lump Sum",
                           result.lumpSum.btc,
+                          result.lumpSum.totalFees,
                           result.lumpSum.value,
                           result.lumpSum.pnlUSD,
                           result.lumpSum.pnlPercent
                         ]
-                      ].map(([name, btc, value, pnl, percent]) => (
+                      ].map(([name, btc, fees, value, pnl, percent]) => (
                         <tr key={name} className="border-b border-line last:border-0">
                           <td className="py-3 pr-4 font-semibold text-ink">{name}</td>
                           <td className="py-3 pr-4 text-ink">{formatBTC(btc)}</td>
+                          <td className="py-3 pr-4 text-ink">{money(fees)}</td>
                           <td className="py-3 pr-4 text-ink">{money(value)}</td>
                           <td className={`py-3 pr-4 font-semibold ${pnl >= 0 ? "text-gain" : "text-loss"}`}>
                             {money(pnl)}

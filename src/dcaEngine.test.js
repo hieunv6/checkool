@@ -49,6 +49,23 @@ test("DCA simulation calculates totals and snapshots", () => {
   assert.equal(result.snapshots.length, 2);
 });
 
+test("DCA simulation applies buy and sell fees", () => {
+  const result = simulateDCA(
+    [{ date: "2024-01-01", close: 100 }],
+    ["2024-01-01"],
+    100,
+    200,
+    1
+  );
+
+  assert.equal(result.totalInvested, 100);
+  assert.equal(result.totalBTC, 0.99);
+  assert.equal(result.buyFees, 1);
+  assert.equal(result.sellFee, 1.98);
+  assert.equal(result.totalFees, 2.98);
+  assert.equal(result.currentValue, 196.02);
+});
+
 test("lump sum simulation buys all at start price", () => {
   const result = simulateLumpSum(
     [
@@ -63,4 +80,19 @@ test("lump sum simulation buys all at start price", () => {
   assert.equal(result.btc, 2);
   assert.equal(result.value, 600);
   assert.equal(result.pnlPercent, 200);
+});
+
+test("lump sum simulation applies buy and sell fees", () => {
+  const result = simulateLumpSum(
+    [{ date: "2024-01-01", close: 100 }],
+    100,
+    "2024-01-01",
+    200,
+    1
+  );
+
+  assert.equal(result.btc, 0.99);
+  assert.equal(result.buyFee, 1);
+  assert.equal(result.sellFee, 1.98);
+  assert.equal(result.value, 196.02);
 });

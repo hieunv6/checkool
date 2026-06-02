@@ -10,6 +10,7 @@ A client-side web tool for calculating and backtesting a Bitcoin Dollar-Cost Ave
 - Compare DCA against a Lump Sum strategy.
 - Visualize portfolio value versus total invested with Recharts.
 - Toggle displayed monetary values between USD and VND.
+- Switch the UI language between Vietnamese, English, Spanish, Chinese, Japanese, and Korean.
 - Share results through URL query parameters.
 - Handles required edge cases: future dates, invalid purchase amount, Binance data before `2017-08-17`, pagination for ranges over 1,000 days, and API retry on rate limit.
 
@@ -83,6 +84,7 @@ Parameters:
 - `start`: start date in `YYYY-MM-DD` format.
 - `end`: end date in `YYYY-MM-DD` format.
 - `cur`: `USD` or `VND`; affects display only.
+- `lang`: `vi`, `en`, `es`, `zh`, `ja`, or `ko`.
 
 ## Project Structure
 

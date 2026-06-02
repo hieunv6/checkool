@@ -265,6 +265,195 @@ export function simulateLumpSum(prices, totalInvested, startDate, currentPrice, 
   };
 }
 
+export function simulatePortfolioDCA(assets, purchaseDates, amountPerPurchase, feePercent = 0) {
+  const amount = Number(amountPerPurchase);
+  const feeRate = Number(feePercent) / 100;
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new Error("Số tiền mỗi lần mua phải lớn hơn 0.");
+  }
+  if (!Number.isFinite(feeRate) || feeRate < 0 || feeRate >= 1) {
+    throw new Error("Phí giao dịch phải từ 0 đến dưới 100%.");
+  }
+  if (!Array.isArray(assets) || assets.length === 0) {
+    throw new Error("Danh mục phải có ít nhất một coin.");
+  }
+
+  const normalizedAssets = assets.map((asset) => ({
+    ...asset,
+    allocationPercent: Number(asset.allocationPercent)
+  }));
+  const allocationTotal = normalizedAssets.reduce((sum, asset) => sum + asset.allocationPercent, 0);
+  if (!Number.isFinite(allocationTotal) || Math.abs(allocationTotal - 100) > 0.01) {
+    throw new Error("Tổng phân bổ danh mục phải bằng 100%.");
+  }
+
+  const holdings = new Map(normalizedAssets.map((asset) => [asset.coinId, 0]));
+  const totalsByCoin = new Map(
+    normalizedAssets.map((asset) => [
+      asset.coinId,
+      {
+        coinId: asset.coinId,
+        symbol: asset.symbol,
+        name: asset.name,
+        totalCoin: 0,
+        totalInvested: 0,
+        buyFees: 0,
+        currentPrice: Number(asset.currentPrice)
+      }
+    ])
+  );
+  let totalInvested = 0;
+  let buyFees = 0;
+  const snapshots = [];
+  const orders = [];
+
+  for (const date of purchaseDates) {
+    const dayOrders = [];
+
+    for (const asset of normalizedAssets) {
+      const price = getPriceOnOrBefore(asset.prices, date);
+      if (!price) continue;
+
+      const allocatedAmount = amount * (asset.allocationPercent / 100);
+      const fee = allocatedAmount * feeRate;
+      const netAmount = allocatedAmount - fee;
+      const coinBought = netAmount / price.close;
+      const totalCoin = (holdings.get(asset.coinId) || 0) + coinBought;
+      const coinTotals = totalsByCoin.get(asset.coinId);
+
+      holdings.set(asset.coinId, totalCoin);
+      coinTotals.totalCoin = totalCoin;
+      coinTotals.totalInvested += allocatedAmount;
+      coinTotals.buyFees += fee;
+      totalInvested += allocatedAmount;
+      buyFees += fee;
+
+      dayOrders.push({
+        date,
+        coinId: asset.coinId,
+        symbol: asset.symbol,
+        name: asset.name,
+        price: price.close,
+        amount: allocatedAmount,
+        fee,
+        netAmount,
+        coinBought,
+        totalCoin
+      });
+    }
+
+    if (dayOrders.length === 0) continue;
+
+    const grossPortfolioValue = normalizedAssets.reduce((sum, asset) => {
+      const price = getPriceOnOrBefore(asset.prices, date);
+      return sum + (holdings.get(asset.coinId) || 0) * (price?.close || 0);
+    }, 0);
+    const sellFee = grossPortfolioValue * feeRate;
+
+    orders.push(...dayOrders);
+    snapshots.push({
+      date,
+      amount,
+      fee: dayOrders.reduce((sum, order) => sum + order.fee, 0),
+      totalInvested,
+      portfolioValue: grossPortfolioValue - sellFee,
+      orders: dayOrders
+    });
+  }
+
+  if (totalInvested <= 0) {
+    throw new Error("Không có giao dịch hợp lệ trong khoảng thời gian đã chọn.");
+  }
+
+  const assetsResult = Array.from(totalsByCoin.values()).map((asset) => {
+    const grossCurrentValue = asset.totalCoin * asset.currentPrice;
+    const sellFee = grossCurrentValue * feeRate;
+    const currentValue = grossCurrentValue - sellFee;
+    const pnlUSD = currentValue - asset.totalInvested;
+    return {
+      ...asset,
+      sellFee,
+      totalFees: asset.buyFees + sellFee,
+      grossCurrentValue,
+      currentValue,
+      pnlUSD,
+      pnlPercent: asset.totalInvested > 0 ? (pnlUSD / asset.totalInvested) * 100 : 0,
+      avgCost: asset.totalCoin > 0 ? asset.totalInvested / asset.totalCoin : 0
+    };
+  });
+
+  const grossCurrentValue = assetsResult.reduce((sum, asset) => sum + asset.grossCurrentValue, 0);
+  const sellFee = grossCurrentValue * feeRate;
+  const currentValue = grossCurrentValue - sellFee;
+  const pnlUSD = currentValue - totalInvested;
+
+  return {
+    totalInvested,
+    buyFees,
+    sellFee,
+    totalFees: buyFees + sellFee,
+    grossCurrentValue,
+    currentValue,
+    pnlUSD,
+    pnlPercent: (pnlUSD / totalInvested) * 100,
+    assets: assetsResult,
+    snapshots,
+    orders
+  };
+}
+
+export function simulatePortfolioLumpSum(assets, totalInvested, startDate, feePercent = 0) {
+  const feeRate = Number(feePercent) / 100;
+  if (!Number.isFinite(feeRate) || feeRate < 0 || feeRate >= 1) {
+    throw new Error("Phí giao dịch phải từ 0 đến dưới 100%.");
+  }
+
+  const assetsResult = assets.map((asset) => {
+    const invested = totalInvested * (Number(asset.allocationPercent) / 100);
+    const startPrice = getPriceOnOrBefore(asset.prices, startDate) || asset.prices?.[0];
+    if (!startPrice) {
+      throw new Error("Không có giá coin tại ngày bắt đầu.");
+    }
+
+    const buyFee = invested * feeRate;
+    const totalCoin = (invested - buyFee) / startPrice.close;
+    const grossCurrentValue = totalCoin * Number(asset.currentPrice);
+    const sellFee = grossCurrentValue * feeRate;
+    const currentValue = grossCurrentValue - sellFee;
+    const pnlUSD = currentValue - invested;
+
+    return {
+      coinId: asset.coinId,
+      symbol: asset.symbol,
+      name: asset.name,
+      invested,
+      startPrice: startPrice.close,
+      totalCoin,
+      buyFee,
+      sellFee,
+      totalFees: buyFee + sellFee,
+      grossCurrentValue,
+      currentValue,
+      pnlUSD,
+      pnlPercent: invested > 0 ? (pnlUSD / invested) * 100 : 0
+    };
+  });
+
+  const buyFees = assetsResult.reduce((sum, asset) => sum + asset.buyFee, 0);
+  const sellFee = assetsResult.reduce((sum, asset) => sum + asset.sellFee, 0);
+  const value = assetsResult.reduce((sum, asset) => sum + asset.currentValue, 0);
+  const pnlUSD = value - totalInvested;
+
+  return {
+    invested: totalInvested,
+    totalFees: buyFees + sellFee,
+    value,
+    pnlUSD,
+    pnlPercent: totalInvested > 0 ? (pnlUSD / totalInvested) * 100 : 0,
+    assets: assetsResult
+  };
+}
+
 export function calculateYearlyCagr(snapshots) {
   if (!Array.isArray(snapshots) || snapshots.length === 0) return [];
 

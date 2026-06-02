@@ -18,8 +18,8 @@ import {
   fetchTopCoins,
   fetchUsdVndRate,
   generatePurchaseDates,
-  simulateDCA,
-  simulateLumpSum,
+  simulatePortfolioDCA,
+  simulatePortfolioLumpSum,
   todayKey
 } from "./dcaEngine.js";
 
@@ -43,6 +43,12 @@ const TRANSLATIONS = {
   vi: {
     subtitle: "Backtest chiến lược mua coin định kỳ bằng dữ liệu thị trường lịch sử.",
     coinLabel: "Coin",
+    portfolioLabel: "Danh mục DCA",
+    allocationLabel: "Phân bổ",
+    addCoin: "Thêm coin",
+    removeCoin: "Xóa",
+    allocationTotal: "Tổng phân bổ",
+    holdingsTitle: "Danh mục đang nắm giữ",
     amountLabel: "Số tiền mỗi lần mua (USD)",
     feeLabel: "Phí mỗi lần mua/bán (%)",
     feeHelp: "Áp dụng cho mỗi lần mua và phí bán ước tính khi tính giá trị hiện tại.",
@@ -93,6 +99,8 @@ const TRANSLATIONS = {
     },
     errors: {
       amount: "Số tiền mỗi lần mua phải lớn hơn 0.",
+      allocation: "Tổng phân bổ danh mục phải bằng 100%.",
+      duplicateCoin: "Mỗi coin chỉ nên xuất hiện một lần trong danh mục.",
       fee: "Phí giao dịch phải từ 0 đến dưới 100%.",
       dates: "Vui lòng chọn ngày bắt đầu và ngày kết thúc.",
       startFuture: "Ngày bắt đầu không được nằm trong tương lai.",
@@ -108,6 +116,12 @@ const TRANSLATIONS = {
   en: {
     subtitle: "Backtest recurring crypto purchases with historical market data.",
     coinLabel: "Coin",
+    portfolioLabel: "DCA portfolio",
+    allocationLabel: "Allocation",
+    addCoin: "Add coin",
+    removeCoin: "Remove",
+    allocationTotal: "Total allocation",
+    holdingsTitle: "Portfolio holdings",
     amountLabel: "Amount per purchase (USD)",
     feeLabel: "Fee per buy/sell (%)",
     feeHelp: "Applied to every purchase and the estimated sale fee used for current value.",
@@ -158,6 +172,8 @@ const TRANSLATIONS = {
     },
     errors: {
       amount: "Amount per purchase must be greater than 0.",
+      allocation: "Portfolio allocation must total 100%.",
+      duplicateCoin: "Each coin should appear only once in the portfolio.",
       fee: "Trading fee must be from 0 to under 100%.",
       dates: "Please choose both start and end dates.",
       startFuture: "Start date cannot be in the future.",
@@ -173,6 +189,12 @@ const TRANSLATIONS = {
   es: {
     subtitle: "Haz backtest de compras recurrentes de cripto con datos históricos de mercado.",
     coinLabel: "Coin",
+    portfolioLabel: "Cartera DCA",
+    allocationLabel: "Asignación",
+    addCoin: "Añadir coin",
+    removeCoin: "Eliminar",
+    allocationTotal: "Asignación total",
+    holdingsTitle: "Posiciones de cartera",
     amountLabel: "Importe por compra (USD)",
     feeLabel: "Comisión por compra/venta (%)",
     feeHelp: "Se aplica a cada compra y a la comisión de venta estimada para el valor actual.",
@@ -223,6 +245,8 @@ const TRANSLATIONS = {
     },
     errors: {
       amount: "El importe por compra debe ser mayor que 0.",
+      allocation: "La asignación de cartera debe sumar 100%.",
+      duplicateCoin: "Cada coin debe aparecer solo una vez en la cartera.",
       fee: "La comisión debe estar entre 0 y menos de 100%.",
       dates: "Selecciona fecha inicial y fecha final.",
       startFuture: "La fecha inicial no puede estar en el futuro.",
@@ -238,6 +262,12 @@ const TRANSLATIONS = {
   zh: {
     subtitle: "使用历史市场数据回测加密货币定投策略。",
     coinLabel: "币种",
+    portfolioLabel: "DCA 组合",
+    allocationLabel: "配置",
+    addCoin: "添加币种",
+    removeCoin: "删除",
+    allocationTotal: "总配置",
+    holdingsTitle: "组合持仓",
     amountLabel: "每次购买金额 (USD)",
     feeLabel: "每次买/卖手续费 (%)",
     feeHelp: "适用于每次买入，并在计算当前价值时估算卖出手续费。",
@@ -288,6 +318,8 @@ const TRANSLATIONS = {
     },
     errors: {
       amount: "每次购买金额必须大于 0。",
+      allocation: "组合配置总和必须为 100%。",
+      duplicateCoin: "每个币种在组合中只能出现一次。",
       fee: "交易手续费必须大于等于 0 且小于 100%。",
       dates: "请选择开始日期和结束日期。",
       startFuture: "开始日期不能是未来日期。",
@@ -303,6 +335,12 @@ const TRANSLATIONS = {
   ja: {
     subtitle: "履歴市場データで暗号資産の積立戦略をバックテストします。",
     coinLabel: "コイン",
+    portfolioLabel: "DCA ポートフォリオ",
+    allocationLabel: "配分",
+    addCoin: "コイン追加",
+    removeCoin: "削除",
+    allocationTotal: "合計配分",
+    holdingsTitle: "保有ポートフォリオ",
     amountLabel: "1回あたりの購入額 (USD)",
     feeLabel: "売買ごとの手数料 (%)",
     feeHelp: "各購入と、現在価値を計算する際の推定売却手数料に適用されます。",
@@ -353,6 +391,8 @@ const TRANSLATIONS = {
     },
     errors: {
       amount: "1回あたりの購入額は 0 より大きくしてください。",
+      allocation: "ポートフォリオ配分の合計は 100% にしてください。",
+      duplicateCoin: "同じコインは一度だけ追加してください。",
       fee: "取引手数料は 0 以上 100% 未満にしてください。",
       dates: "開始日と終了日を選択してください。",
       startFuture: "開始日に未来の日付は指定できません。",
@@ -368,6 +408,12 @@ const TRANSLATIONS = {
   ko: {
     subtitle: "과거 시장 데이터로 암호화폐 정기 매수 전략을 백테스트합니다.",
     coinLabel: "코인",
+    portfolioLabel: "DCA 포트폴리오",
+    allocationLabel: "배분",
+    addCoin: "코인 추가",
+    removeCoin: "삭제",
+    allocationTotal: "총 배분",
+    holdingsTitle: "포트폴리오 보유",
     amountLabel: "회당 매수 금액 (USD)",
     feeLabel: "매수/매도당 수수료 (%)",
     feeHelp: "각 매수와 현재 가치 계산 시 추정 매도 수수료에 적용됩니다.",
@@ -418,6 +464,8 @@ const TRANSLATIONS = {
     },
     errors: {
       amount: "회당 매수 금액은 0보다 커야 합니다.",
+      allocation: "포트폴리오 배분 합계는 100%여야 합니다.",
+      duplicateCoin: "각 코인은 포트폴리오에 한 번만 포함해야 합니다.",
       fee: "거래 수수료는 0 이상 100% 미만이어야 합니다.",
       dates: "시작일과 종료일을 선택해 주세요.",
       startFuture: "시작일은 미래일 수 없습니다.",
@@ -433,7 +481,7 @@ const TRANSLATIONS = {
 };
 
 const DEFAULT_FORM = {
-  coinId: "bitcoin",
+  portfolio: [{ coinId: "bitcoin", allocation: "100" }],
   amount: "100",
   fee: "0.1",
   frequency: "weekly",
@@ -441,12 +489,39 @@ const DEFAULT_FORM = {
   endDate: todayKey()
 };
 
+function parsePortfolioParam(params) {
+  const portfolioParam = params.get("portfolio");
+  if (portfolioParam) {
+    const parsed = portfolioParam
+      .split(",")
+      .map((item) => {
+        const [coinId, allocation] = item.split(":");
+        return {
+          coinId: coinId?.trim(),
+          allocation: allocation?.trim() || "0"
+        };
+      })
+      .filter((item) => item.coinId);
+
+    if (parsed.length > 0) return parsed;
+  }
+
+  return [{ coinId: params.get("coin") || DEFAULT_FORM.portfolio[0].coinId, allocation: "100" }];
+}
+
+function serializePortfolio(portfolio) {
+  return portfolio
+    .filter((item) => item.coinId)
+    .map((item) => `${item.coinId}:${item.allocation}`)
+    .join(",");
+}
+
 function readInitialState() {
   const params = new URLSearchParams(window.location.search);
   const lang = LANGUAGES.some((language) => language.value === params.get("lang")) ? params.get("lang") : "vi";
   return {
     form: {
-      coinId: params.get("coin") || DEFAULT_FORM.coinId,
+      portfolio: parsePortfolioParam(params),
       amount: params.get("amount") || DEFAULT_FORM.amount,
       fee: params.get("fee") || DEFAULT_FORM.fee,
       frequency: params.get("freq") || DEFAULT_FORM.frequency,
@@ -464,7 +539,7 @@ const initialState = readInitialState();
 function buildShareUrl(form, currency, language) {
   const params = new URLSearchParams({
     amount: form.amount,
-    coin: form.coinId,
+    portfolio: serializePortfolio(form.portfolio),
     fee: form.fee,
     freq: form.frequency,
     start: form.startDate,
@@ -516,8 +591,15 @@ function useIsNarrowViewport(maxWidth = 640) {
 function validateForm(form, t) {
   const amount = Number(form.amount);
   const fee = Number(form.fee);
+  const allocations = Array.isArray(form.portfolio) ? form.portfolio : [];
+  const allocationTotal = allocations.reduce((sum, item) => sum + Number(item.allocation || 0), 0);
+  const coinIds = allocations.map((item) => item.coinId).filter(Boolean);
   const now = todayKey();
   if (!Number.isFinite(amount) || amount <= 0) return t.errors.amount;
+  if (allocations.length === 0 || !Number.isFinite(allocationTotal) || Math.abs(allocationTotal - 100) > 0.01) {
+    return t.errors.allocation;
+  }
+  if (new Set(coinIds).size !== coinIds.length) return t.errors.duplicateCoin;
   if (!Number.isFinite(fee) || fee < 0 || fee >= 100) return t.errors.fee;
   if (!form.startDate || !form.endDate) return t.errors.dates;
   if (compareDateKeys(form.startDate, now) > 0) return t.errors.startFuture;
@@ -677,6 +759,91 @@ function CoinCombobox({ coins, selectedCoin, value, onChange, label }) {
   );
 }
 
+function getCoinMeta(coins, coinId) {
+  return (
+    coins.find((coin) => coin.id === coinId) ||
+    { id: coinId, symbol: coinId === "bitcoin" ? "BTC" : String(coinId || "").toUpperCase(), name: coinId || "Coin" }
+  );
+}
+
+function PortfolioAllocationEditor({ coins, portfolio, onChange, t }) {
+  const allocationTotal = portfolio.reduce((sum, item) => sum + Number(item.allocation || 0), 0);
+
+  function updateItem(index, patch) {
+    onChange(portfolio.map((item, itemIndex) => (itemIndex === index ? { ...item, ...patch } : item)));
+  }
+
+  function addCoin() {
+    const existing = new Set(portfolio.map((item) => item.coinId));
+    const nextCoin = coins.find((coin) => !existing.has(coin.id)) || { id: "ethereum" };
+    onChange([...portfolio, { coinId: nextCoin.id, allocation: "0" }]);
+  }
+
+  function removeCoin(index) {
+    if (portfolio.length <= 1) return;
+    onChange(portfolio.filter((_, itemIndex) => itemIndex !== index));
+  }
+
+  return (
+    <div className="grid gap-3">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-sm font-medium text-ink">{t.portfolioLabel}</span>
+        <span className={`text-xs font-semibold ${Math.abs(allocationTotal - 100) <= 0.01 ? "text-gain" : "text-loss"}`}>
+          {t.allocationTotal}: {allocationTotal.toFixed(2).replace(/\.00$/, "")}%
+        </span>
+      </div>
+
+      <div className="grid gap-3">
+        {portfolio.map((item, index) => {
+          const selectedCoin = getCoinMeta(coins, item.coinId);
+          return (
+            <div key={`${item.coinId}-${index}`} className="rounded-lg border border-line bg-[#F8FAFC] p-3">
+              <div className="grid gap-3">
+                <CoinCombobox
+                  coins={coins}
+                  selectedCoin={selectedCoin}
+                  value={item.coinId}
+                  onChange={(coinId) => updateItem(index, { coinId })}
+                  label={t.coinLabel}
+                />
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2">
+                  <Field label={`${t.allocationLabel} (%)`}>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      value={item.allocation}
+                      onChange={(event) => updateItem(index, { allocation: event.target.value })}
+                      className="h-11 w-full rounded-lg border border-line bg-white px-3 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
+                    />
+                  </Field>
+                  <button
+                    type="button"
+                    disabled={portfolio.length <= 1}
+                    onClick={() => removeCoin(index)}
+                    className="h-11 rounded-lg border border-line px-3 text-sm font-semibold text-muted transition hover:border-red-200 hover:bg-red-50 hover:text-loss disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {t.removeCoin}
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <button
+        type="button"
+        onClick={addCoin}
+        className="h-10 rounded-lg border border-brand px-3 text-sm font-semibold text-brand transition hover:bg-teal-50"
+      >
+        {t.addCoin}
+      </button>
+    </div>
+  );
+}
+
 function SimpleDropdown({ label, value, options, onChange, className = "" }) {
   const [isOpen, setIsOpen] = useState(false);
   const selectedOption = options.find((option) => option.value === value) || options[0];
@@ -745,9 +912,11 @@ export default function App() {
   const hasAutoRunRef = useRef(false);
   const isNarrowChart = useIsNarrowViewport(768);
   const t = TRANSLATIONS[language] || TRANSLATIONS.vi;
-  const selectedCoin =
-    coins.find((coin) => coin.id === form.coinId) ||
-    { id: form.coinId, symbol: form.coinId === "bitcoin" ? "BTC" : form.coinId.toUpperCase(), name: form.coinId };
+  const portfolioCoins = form.portfolio.map((item) => ({
+    ...item,
+    coin: getCoinMeta(coins, item.coinId)
+  }));
+  const primaryCoin = portfolioCoins[0]?.coin || getCoinMeta(coins, "bitcoin");
   const languageOptions = LANGUAGES.map((item) => ({
     ...item,
     icon: { vi: "VI", en: "EN", es: "ES", zh: "ZH", ja: "JA", ko: "KO" }[item.value]
@@ -779,15 +948,30 @@ export default function App() {
       const localWarning = clampedStart !== form.startDate ? t.warnings.clampedStart : "";
       const purchaseDates = generatePurchaseDates(clampedStart, form.endDate, form.frequency);
 
-      const [prices, currentPrice, rate] = await Promise.all([
-        fetchHistoricalPrices(form.coinId, clampedStart, form.endDate),
-        fetchCurrentPrice(form.coinId),
+      const [assetData, rate] = await Promise.all([
+        Promise.all(
+          form.portfolio.map(async (item) => {
+            const coin = getCoinMeta(coins, item.coinId);
+            const [prices, currentPrice] = await Promise.all([
+              fetchHistoricalPrices(item.coinId, clampedStart, form.endDate),
+              fetchCurrentPrice(item.coinId)
+            ]);
+            return {
+              coinId: item.coinId,
+              symbol: coin.symbol,
+              name: coin.name,
+              allocationPercent: Number(item.allocation),
+              prices,
+              currentPrice
+            };
+          })
+        ),
         fetchUsdVndRate()
       ]);
 
       const feePercent = Number(form.fee);
-      const dca = simulateDCA(prices, purchaseDates, Number(form.amount), currentPrice, feePercent);
-      const lumpSum = simulateLumpSum(prices, dca.totalInvested, clampedStart, currentPrice, feePercent);
+      const dca = simulatePortfolioDCA(assetData, purchaseDates, Number(form.amount), feePercent);
+      const lumpSum = simulatePortfolioLumpSum(assetData, dca.totalInvested, clampedStart, feePercent);
 
       setUsdVndRate(rate);
       setWarning(localWarning);
@@ -798,7 +982,7 @@ export default function App() {
       setResult({
         dca,
         lumpSum,
-        currentPrice,
+        assets: assetData.map(({ prices, ...asset }) => asset),
         purchaseCount: purchaseDates.length,
         effectiveStart: clampedStart
       });
@@ -813,7 +997,7 @@ export default function App() {
     } finally {
       setIsLoading(false);
     }
-  }, [currency, form, language, t]);
+  }, [coins, currency, form, language, t]);
 
   useEffect(() => {
     let isMounted = true;
@@ -889,8 +1073,8 @@ export default function App() {
     setForm((current) => ({ ...current, [field]: value }));
   }
 
-  function updateCoin(coinId) {
-    setForm((current) => ({ ...current, coinId }));
+  function updatePortfolio(portfolio) {
+    setForm((current) => ({ ...current, portfolio }));
     setResult(null);
     setWarning("");
     setError("");
@@ -935,12 +1119,11 @@ export default function App() {
         <section className="h-fit rounded-lg border border-line bg-panel p-4 shadow-sm sm:p-5">
           <h2 className="text-lg font-semibold text-ink">{t.inputTitle}</h2>
           <div className="mt-5 grid gap-4">
-            <CoinCombobox
+            <PortfolioAllocationEditor
               coins={coins}
-              selectedCoin={selectedCoin}
-              value={form.coinId}
-              onChange={updateCoin}
-              label={t.coinLabel}
+              portfolio={form.portfolio}
+              onChange={updatePortfolio}
+              t={t}
             />
             <Field label={t.amountLabel}>
               <input
@@ -1011,9 +1194,7 @@ export default function App() {
             ) : result ? (
               <div className="grid min-w-0 grid-cols-2 gap-3 xl:grid-cols-3">
                 <StatCard label={t.totalInvested} value={money(result.dca.totalInvested)} />
-                <StatCard label={t.totalBtc} value={formatCoinAmount(result.dca.totalBTC, selectedCoin.symbol)} />
                 <StatCard label={t.totalFees} value={money(result.dca.totalFees)} />
-                <StatCard label={t.avgCost} value={money(result.dca.avgCost)} />
                 <StatCard label={t.currentValue} value={money(result.dca.currentValue)} />
                 <StatCard label={t.pnl} value={money(result.dca.pnlUSD)} tone={pnlTone} />
                 <StatCard label={t.pnlPercent} value={formatPercent(result.dca.pnlPercent)} tone={pnlTone} />
@@ -1030,17 +1211,21 @@ export default function App() {
               <section className="rounded-lg border border-line bg-panel p-3 shadow-sm sm:p-4">
                 <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
                   <div className="flex min-w-0 items-center gap-3">
-                    <CoinIcon coin={selectedCoin} />
+                    <CoinIcon coin={primaryCoin} />
                     <div className="min-w-0">
                       <h2 className="text-lg font-semibold text-ink">{t.chartTitle}</h2>
                       <p className="break-words text-sm text-muted">
-                        {selectedCoin.name} · {result.purchaseCount} {t.purchaseCount} {result.effectiveStart} - {form.endDate}
+                        {portfolioCoins.map((item) => `${item.coin.symbol} ${item.allocation}%`).join(" · ")} · {result.purchaseCount} {t.purchaseCount} {result.effectiveStart} - {form.endDate}
                       </p>
                     </div>
                   </div>
-                  <p className="text-sm text-muted md:text-right">
-                    {t.currentBtc} {selectedCoin.symbol}: {money(result.currentPrice)}
-                  </p>
+                  <div className="text-sm text-muted md:text-right">
+                    {result.assets.map((asset) => (
+                      <p key={asset.coinId}>
+                        {t.currentBtc} {asset.symbol}: {money(asset.currentPrice)}
+                      </p>
+                    ))}
+                  </div>
                 </div>
                 <div className="chart-scroll min-w-0 overflow-x-auto overflow-y-hidden rounded-md">
                   <div className="h-[280px] min-w-0 sm:h-[320px]" style={{ width: chartScrollWidth }}>
@@ -1088,6 +1273,40 @@ export default function App() {
               </section>
 
               <section className="rounded-lg border border-line bg-panel p-3 shadow-sm sm:p-4">
+                <h2 className="text-lg font-semibold text-ink">{t.holdingsTitle}</h2>
+                <div className="mt-4 overflow-x-auto rounded-lg border border-line">
+                  <table className="w-full min-w-[760px] border-collapse bg-white text-left text-xs sm:text-sm">
+                    <thead className="bg-[#F8FAFC] text-muted">
+                      <tr className="border-b border-line">
+                        <th className="px-3 py-3 font-semibold">{t.coinLabel}</th>
+                        <th className="px-3 py-3 font-semibold">{t.totalInvested}</th>
+                        <th className="px-3 py-3 font-semibold">{t.totalBtc}</th>
+                        <th className="px-3 py-3 font-semibold">{t.avgCost}</th>
+                        <th className="px-3 py-3 font-semibold">{t.totalFees}</th>
+                        <th className="px-3 py-3 font-semibold">{t.currentValue}</th>
+                        <th className="px-3 py-3 font-semibold">{t.pnl}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {result.dca.assets.map((asset) => (
+                        <tr key={asset.coinId} className="border-b border-line last:border-0">
+                          <td className="px-3 py-3 font-semibold text-ink">{asset.name}</td>
+                          <td className="px-3 py-3 text-ink">{money(asset.totalInvested)}</td>
+                          <td className="px-3 py-3 text-ink">{formatCoinAmount(asset.totalCoin, asset.symbol)}</td>
+                          <td className="px-3 py-3 text-ink">{money(asset.avgCost)}</td>
+                          <td className="px-3 py-3 text-ink">{money(asset.totalFees)}</td>
+                          <td className="px-3 py-3 text-ink">{money(asset.currentValue)}</td>
+                          <td className={`px-3 py-3 font-semibold ${asset.pnlUSD >= 0 ? "text-gain" : "text-loss"}`}>
+                            {money(asset.pnlUSD)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
+              <section className="rounded-lg border border-line bg-panel p-3 shadow-sm sm:p-4">
                 <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
                   <h2 className="text-lg font-semibold text-ink">{t.orderHistoryTitle}</h2>
                   <p className="text-sm text-muted">
@@ -1095,10 +1314,11 @@ export default function App() {
                   </p>
                 </div>
                 <div className="max-h-[420px] overflow-auto rounded-lg border border-line">
-                  <table className="w-full min-w-[760px] border-collapse bg-white text-left text-xs sm:text-sm">
+                  <table className="w-full min-w-[860px] border-collapse bg-white text-left text-xs sm:text-sm">
                     <thead className="sticky top-0 z-10 bg-[#F8FAFC] text-muted">
                       <tr className="border-b border-line">
                         <th className="px-3 py-3 font-semibold">{t.orderDate}</th>
+                        <th className="px-3 py-3 font-semibold">{t.coinLabel}</th>
                         <th className="px-3 py-3 font-semibold">{t.orderPrice}</th>
                         <th className="px-3 py-3 font-semibold">{t.orderAmount}</th>
                         <th className="px-3 py-3 font-semibold">{t.orderFee}</th>
@@ -1107,17 +1327,18 @@ export default function App() {
                       </tr>
                     </thead>
                     <tbody>
-                      {result.dca.snapshots.map((order) => (
-                        <tr key={order.date} className="border-b border-line last:border-0">
+                      {result.dca.orders.map((order) => (
+                        <tr key={`${order.date}-${order.coinId}`} className="border-b border-line last:border-0">
                           <td className="px-3 py-3 font-semibold text-ink">{order.date}</td>
+                          <td className="px-3 py-3 font-semibold text-ink">{order.symbol}</td>
                           <td className="px-3 py-3 text-ink">{money(order.price)}</td>
                           <td className="px-3 py-3 text-ink">{money(order.amount)}</td>
                           <td className="px-3 py-3 text-ink">{money(order.fee)}</td>
                           <td className="px-3 py-3 text-ink">
-                            {formatCoinAmount(order.coinBought, selectedCoin.symbol)}
+                            {formatCoinAmount(order.coinBought, order.symbol)}
                           </td>
                           <td className="px-3 py-3 text-ink">
-                            {formatCoinAmount(order.totalCoin, selectedCoin.symbol)}
+                            {formatCoinAmount(order.totalCoin, order.symbol)}
                           </td>
                         </tr>
                       ))}
@@ -1163,7 +1384,6 @@ export default function App() {
                     <thead>
                       <tr className="border-b border-line text-muted">
                         <th className="py-3 pr-4 font-semibold">{t.tableStrategy}</th>
-                        <th className="py-3 pr-4 font-semibold">{selectedCoin.symbol}</th>
                         <th className="py-3 pr-4 font-semibold">{t.totalFees}</th>
                         <th className="py-3 pr-4 font-semibold">{t.tableValue}</th>
                         <th className="py-3 pr-4 font-semibold">{t.pnl}</th>
@@ -1174,7 +1394,6 @@ export default function App() {
                       {[
                         [
                           "DCA",
-                          result.dca.totalBTC,
                           result.dca.totalFees,
                           result.dca.currentValue,
                           result.dca.pnlUSD,
@@ -1182,16 +1401,14 @@ export default function App() {
                         ],
                         [
                           "Lump Sum",
-                          result.lumpSum.btc,
                           result.lumpSum.totalFees,
                           result.lumpSum.value,
                           result.lumpSum.pnlUSD,
                           result.lumpSum.pnlPercent
                         ]
-                      ].map(([name, btc, fees, value, pnl, percent]) => (
+                      ].map(([name, fees, value, pnl, percent]) => (
                         <tr key={name} className="border-b border-line last:border-0">
                           <td className="py-3 pr-4 font-semibold text-ink">{name}</td>
-                          <td className="py-3 pr-4 text-ink">{formatCoinAmount(btc, selectedCoin.symbol)}</td>
                           <td className="py-3 pr-4 text-ink">{money(fees)}</td>
                           <td className="py-3 pr-4 text-ink">{money(value)}</td>
                           <td className={`py-3 pr-4 font-semibold ${pnl >= 0 ? "text-gain" : "text-loss"}`}>

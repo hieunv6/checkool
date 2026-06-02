@@ -5,7 +5,9 @@ import {
   generatePurchaseDates,
   getPriceOnOrBefore,
   simulateDCA,
-  simulateLumpSum
+  simulateLumpSum,
+  simulatePortfolioDCA,
+  simulatePortfolioLumpSum
 } from "./dcaEngine.js";
 
 test("monthly frequency clamps to end of shorter months", () => {
@@ -107,6 +109,70 @@ test("lump sum simulation applies buy and sell fees", () => {
   assert.equal(result.buyFee, 1);
   assert.equal(result.sellFee, 1.98);
   assert.equal(result.value, 196.02);
+});
+
+test("portfolio DCA splits each purchase by allocation percent", () => {
+  const result = simulatePortfolioDCA(
+    [
+      {
+        coinId: "bitcoin",
+        symbol: "BTC",
+        name: "Bitcoin",
+        allocationPercent: 60,
+        currentPrice: 200,
+        prices: [{ date: "2024-01-01", close: 100 }]
+      },
+      {
+        coinId: "ethereum",
+        symbol: "ETH",
+        name: "Ethereum",
+        allocationPercent: 40,
+        currentPrice: 100,
+        prices: [{ date: "2024-01-01", close: 50 }]
+      }
+    ],
+    ["2024-01-01"],
+    100,
+    1
+  );
+
+  assert.equal(result.totalInvested, 100);
+  assert.equal(result.orders.length, 2);
+  assert.equal(result.orders[0].amount, 60);
+  assert.equal(result.orders[1].amount, 40);
+  assert.equal(result.assets[0].totalCoin, 0.594);
+  assert.equal(result.assets[1].totalCoin, 0.792);
+  assert.equal(result.currentValue, 196.02);
+});
+
+test("portfolio lump sum aggregates asset values", () => {
+  const result = simulatePortfolioLumpSum(
+    [
+      {
+        coinId: "bitcoin",
+        symbol: "BTC",
+        name: "Bitcoin",
+        allocationPercent: 50,
+        currentPrice: 200,
+        prices: [{ date: "2024-01-01", close: 100 }]
+      },
+      {
+        coinId: "ethereum",
+        symbol: "ETH",
+        name: "Ethereum",
+        allocationPercent: 50,
+        currentPrice: 100,
+        prices: [{ date: "2024-01-01", close: 50 }]
+      }
+    ],
+    100,
+    "2024-01-01",
+    0
+  );
+
+  assert.equal(result.invested, 100);
+  assert.equal(result.value, 200);
+  assert.equal(result.pnlPercent, 100);
 });
 
 test("yearly CAGR uses the last snapshot of each year", () => {

@@ -3,13 +3,43 @@ import fs from "node:fs";
 import path from "node:path";
 import sqlite3 from "sqlite3";
 
-const MARKET_DATA_BASE_URL = "https://api.binance.com/api/v3";
+const MARKET_DATA_BASE_URL = "https://api.coingecko.com/api/v3";
+const EXCHANGE_DATA_BASE_URL = "https://api.binance.com/api/v3";
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
-const EARLIEST_BTC_DATE = "2017-08-17";
+const EARLIEST_MARKET_DATE = "2017-08-17";
 const DB_DIR = path.resolve("data");
 const DB_PATH = path.join(DB_DIR, "checkool.sqlite");
 const PORT = Number(process.env.API_PORT || 8787);
 const CURRENT_PRICE_TTL_MS = 60 * 1000;
+const TOP_COINS_TTL_MS = 6 * 60 * 60 * 1000;
+const STABLE_SYMBOLS = new Set([
+  "usdt",
+  "usdc",
+  "dai",
+  "busd",
+  "tusd",
+  "usde",
+  "fdusd",
+  "usds",
+  "usdp",
+  "usdd",
+  "gusd",
+  "lusd",
+  "frax",
+  "susd",
+  "pyusd",
+  "usdj",
+  "usdn",
+  "eurc",
+  "eurt",
+  "usd1",
+  "usyc",
+  "usdg",
+  "buidl",
+  "usdy",
+  "rlusd",
+  "usdf"
+]);
 
 fs.mkdirSync(DB_DIR, { recursive: true });
 
@@ -44,11 +74,12 @@ function get(sql, params = []) {
 
 async function initDb() {
   await run(`
-    CREATE TABLE IF NOT EXISTS btc_daily_prices (
-      date TEXT PRIMARY KEY,
+    CREATE TABLE IF NOT EXISTS coin_daily_prices (
+      coin_id TEXT NOT NULL,
+      date TEXT NOT NULL,
       close REAL NOT NULL,
-      open_time INTEGER NOT NULL,
-      updated_at INTEGER NOT NULL
+      updated_at INTEGER NOT NULL,
+      PRIMARY KEY (coin_id, date)
     )
   `);
   await run(`
@@ -58,6 +89,15 @@ async function initDb() {
       updated_at INTEGER NOT NULL
     )
   `);
+  const oldBtcTable = await get("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?", [
+    "btc_daily_prices"
+  ]);
+  if (oldBtcTable) {
+    await run(`
+      INSERT OR IGNORE INTO coin_daily_prices (coin_id, date, close, updated_at)
+      SELECT 'bitcoin', date, close, updated_at FROM btc_daily_prices
+    `);
+  }
 }
 
 function toDateKey(date) {
@@ -80,7 +120,7 @@ function compareDateKeys(a, b) {
 }
 
 function clampStartDate(dateKey) {
-  return compareDateKeys(dateKey, EARLIEST_BTC_DATE) < 0 ? EARLIEST_BTC_DATE : dateKey;
+  return compareDateKeys(dateKey, EARLIEST_MARKET_DATE) < 0 ? EARLIEST_MARKET_DATE : dateKey;
 }
 
 function listDateKeys(startDate, endDate) {
@@ -121,7 +161,7 @@ async function fetchWithRetry(url, retries = 3) {
     try {
       const response = await fetch(url);
       if (response.status === 429 && attempt < retries - 1) {
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        await new Promise((resolve) => setTimeout(resolve, 1200));
         continue;
       }
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -129,34 +169,107 @@ async function fetchWithRetry(url, retries = 3) {
     } catch (error) {
       lastError = error;
       if (attempt < retries - 1) {
-        await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)));
+        await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
       }
     }
   }
   throw lastError;
 }
 
-async function fetchMarketCandles(startDate, endDate) {
+function isStableCoin(coin) {
+  const symbol = String(coin.symbol || "").toLowerCase();
+  const name = String(coin.name || "").toLowerCase();
+  return (
+    STABLE_SYMBOLS.has(symbol) ||
+    symbol.startsWith("usd") ||
+    symbol.endsWith("usd") ||
+    name.includes("stablecoin") ||
+    name.includes("usd") ||
+    name.includes("u.s. dollar") ||
+    name.includes("us dollar") ||
+    name.includes("global dollar")
+  );
+}
+
+async function getTopCoins() {
+  const cached = await get("SELECT value, updated_at FROM cache_meta WHERE key = ?", ["top_coins_v2"]);
+  if (cached && Date.now() - Number(cached.updated_at) < TOP_COINS_TTL_MS) {
+    return JSON.parse(cached.value);
+  }
+
+  const params = new URLSearchParams({
+    vs_currency: "usd",
+    order: "market_cap_desc",
+    per_page: "250",
+    page: "1",
+    sparkline: "false",
+    price_change_percentage: "24h"
+  });
+  let rows;
+  try {
+    rows = await fetchWithRetry(`${MARKET_DATA_BASE_URL}/coins/markets?${params.toString()}`);
+  } catch (error) {
+    const legacyCached = await get("SELECT value FROM cache_meta WHERE key IN (?, ?) ORDER BY updated_at DESC LIMIT 1", [
+      "top_coins_v2",
+      "top_coins"
+    ]);
+    if (legacyCached) {
+      return JSON.parse(legacyCached.value).filter((coin) => !isStableCoin(coin)).slice(0, 50);
+    }
+    throw error;
+  }
+  const coins = rows
+    .filter((coin) => !isStableCoin(coin))
+    .slice(0, 50)
+    .map((coin) => ({
+      id: coin.id,
+      symbol: String(coin.symbol || "").toUpperCase(),
+      name: coin.name,
+      image: coin.image,
+      marketCapRank: coin.market_cap_rank,
+      currentPrice: coin.current_price,
+      marketCap: coin.market_cap
+    }));
+
+  await run(
+    `
+      INSERT INTO cache_meta (key, value, updated_at)
+      VALUES (?, ?, ?)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+    `,
+    ["top_coins_v2", JSON.stringify(coins), Date.now()]
+  );
+  return coins;
+}
+
+async function getCoinSymbol(coinId) {
+  const topCoins = await getTopCoins();
+  const coin = topCoins.find((item) => item.id === coinId);
+  return coin?.symbol || (coinId === "bitcoin" ? "BTC" : coinId.toUpperCase());
+}
+
+async function fetchExchangeCandles(coinId, startDate, endDate) {
+  const symbol = await getCoinSymbol(coinId);
+  const pair = `${symbol}USDT`;
   const candles = [];
   let cursor = parseDateKey(startDate).getTime();
   const endTime = parseDateKey(endDate).getTime() + ONE_DAY_MS - 1;
 
   while (cursor <= endTime) {
     const params = new URLSearchParams({
-      symbol: "BTCUSDT",
+      symbol: pair,
       interval: "1d",
       startTime: String(cursor),
       endTime: String(endTime),
       limit: "1000"
     });
-    const rows = await fetchWithRetry(`${MARKET_DATA_BASE_URL}/klines?${params.toString()}`);
+    const rows = await fetchWithRetry(`${EXCHANGE_DATA_BASE_URL}/klines?${params.toString()}`);
     if (!Array.isArray(rows) || rows.length === 0) break;
 
     for (const row of rows) {
       candles.push({
         date: toDateKey(new Date(row[0])),
-        close: Number(row[4]),
-        openTime: Number(row[0])
+        close: Number(row[4])
       });
     }
 
@@ -168,22 +281,57 @@ async function fetchMarketCandles(startDate, endDate) {
   return candles;
 }
 
-async function saveCandles(candles) {
-  if (candles.length === 0) return;
+async function fetchMarketPrices(coinId, startDate, endDate) {
+  const from = Math.floor(parseDateKey(startDate).getTime() / 1000);
+  const to = Math.floor((parseDateKey(endDate).getTime() + ONE_DAY_MS - 1) / 1000);
+  const rangeParams = new URLSearchParams({
+    vs_currency: "usd",
+    from: String(from),
+    to: String(to)
+  });
+  let data;
+  try {
+    data = await fetchWithRetry(
+      `${MARKET_DATA_BASE_URL}/coins/${encodeURIComponent(coinId)}/market_chart/range?${rangeParams.toString()}`
+    );
+  } catch {
+    const fallbackParams = new URLSearchParams({ vs_currency: "usd", days: "max" });
+    try {
+      data = await fetchWithRetry(
+        `${MARKET_DATA_BASE_URL}/coins/${encodeURIComponent(coinId)}/market_chart?${fallbackParams.toString()}`
+      );
+    } catch {
+      return fetchExchangeCandles(coinId, startDate, endDate);
+    }
+  }
+  const prices = Array.isArray(data?.prices) ? data.prices : [];
+  const byDate = new Map();
+
+  for (const [timestamp, close] of prices) {
+    const date = toDateKey(new Date(timestamp));
+    if (compareDateKeys(date, startDate) >= 0 && compareDateKeys(date, endDate) <= 0) {
+      byDate.set(date, { date, close: Number(close) });
+    }
+  }
+
+  return Array.from(byDate.values()).filter((price) => Number.isFinite(price.close) && price.close > 0);
+}
+
+async function saveCoinPrices(coinId, prices) {
+  if (prices.length === 0) return;
   const now = Date.now();
   await run("BEGIN TRANSACTION");
   try {
-    for (const candle of candles) {
+    for (const price of prices) {
       await run(
         `
-          INSERT INTO btc_daily_prices (date, close, open_time, updated_at)
+          INSERT INTO coin_daily_prices (coin_id, date, close, updated_at)
           VALUES (?, ?, ?, ?)
-          ON CONFLICT(date) DO UPDATE SET
+          ON CONFLICT(coin_id, date) DO UPDATE SET
             close = excluded.close,
-            open_time = excluded.open_time,
             updated_at = excluded.updated_at
         `,
-        [candle.date, candle.close, candle.openTime, now]
+        [coinId, price.date, price.close, now]
       );
     }
     await run("COMMIT");
@@ -193,38 +341,47 @@ async function saveCandles(candles) {
   }
 }
 
-async function getCachedDailyPrices(startDate, endDate) {
+async function getCachedDailyPrices(coinId, startDate, endDate) {
   const startKey = clampStartDate(startDate);
   const endKey = endDate;
   const expectedDates = listDateKeys(startKey, endKey);
   const cached = await all(
-    "SELECT date, close FROM btc_daily_prices WHERE date >= ? AND date <= ? ORDER BY date ASC",
-    [startKey, endKey]
+    "SELECT date, close FROM coin_daily_prices WHERE coin_id = ? AND date >= ? AND date <= ? ORDER BY date ASC",
+    [coinId, startKey, endKey]
   );
   const cachedDates = new Set(cached.map((row) => row.date));
   const missingDates = expectedDates.filter((dateKey) => !cachedDates.has(dateKey));
 
   for (const [rangeStart, rangeEnd] of contiguousRanges(missingDates)) {
-    const candles = await fetchMarketCandles(rangeStart, rangeEnd);
-    await saveCandles(candles);
+    const prices = await fetchMarketPrices(coinId, rangeStart, rangeEnd);
+    await saveCoinPrices(coinId, prices);
   }
 
   return all(
-    "SELECT date, close FROM btc_daily_prices WHERE date >= ? AND date <= ? ORDER BY date ASC",
-    [startKey, endKey]
+    "SELECT date, close FROM coin_daily_prices WHERE coin_id = ? AND date >= ? AND date <= ? ORDER BY date ASC",
+    [coinId, startKey, endKey]
   );
 }
 
-async function getCurrentPrice() {
-  const cached = await get("SELECT value, updated_at FROM cache_meta WHERE key = ?", ["btc_current_price"]);
+async function getCurrentPrice(coinId) {
+  const key = `current_price:${coinId}`;
+  const cached = await get("SELECT value, updated_at FROM cache_meta WHERE key = ?", [key]);
   if (cached && Date.now() - Number(cached.updated_at) < CURRENT_PRICE_TTL_MS) {
     return Number(cached.value);
   }
 
-  const data = await fetchWithRetry(`${MARKET_DATA_BASE_URL}/ticker/price?symbol=BTCUSDT`);
-  const price = Number(data.price);
+  const params = new URLSearchParams({ ids: coinId, vs_currencies: "usd" });
+  let price;
+  try {
+    const data = await fetchWithRetry(`${MARKET_DATA_BASE_URL}/simple/price?${params.toString()}`);
+    price = Number(data?.[coinId]?.usd);
+  } catch {
+    const symbol = await getCoinSymbol(coinId);
+    const data = await fetchWithRetry(`${EXCHANGE_DATA_BASE_URL}/ticker/price?symbol=${symbol}USDT`);
+    price = Number(data?.price);
+  }
   if (!Number.isFinite(price) || price <= 0) {
-    throw new Error("Invalid BTC price.");
+    throw new Error("Invalid current price.");
   }
   await run(
     `
@@ -232,7 +389,7 @@ async function getCurrentPrice() {
       VALUES (?, ?, ?)
       ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
     `,
-    ["btc_current_price", String(price), Date.now()]
+    [key, String(price), Date.now()]
   );
   return price;
 }
@@ -245,26 +402,63 @@ app.get("/api/health", (request, response) => {
   response.json({ ok: true });
 });
 
+app.get("/api/coins/top", async (request, response) => {
+  try {
+    response.json({ coins: await getTopCoins() });
+  } catch (error) {
+    response.status(500).json({ error: error.message || "Failed to load top coins." });
+  }
+});
+
+app.get("/api/coins/:coinId/prices", async (request, response) => {
+  try {
+    const coinId = String(request.params.coinId || "").trim();
+    const start = String(request.query.start || "").slice(0, 10);
+    const end = String(request.query.end || "").slice(0, 10);
+    if (!coinId || !start || !end || compareDateKeys(start, end) > 0) {
+      response.status(400).json({ error: "Invalid request." });
+      return;
+    }
+    const prices = await getCachedDailyPrices(coinId, start, end);
+    response.json({ prices });
+  } catch (error) {
+    response.status(500).json({ error: error.message || "Failed to load market prices." });
+  }
+});
+
+app.get("/api/coins/:coinId/current", async (request, response) => {
+  try {
+    const coinId = String(request.params.coinId || "").trim();
+    if (!coinId) {
+      response.status(400).json({ error: "Invalid coin id." });
+      return;
+    }
+    response.json({ price: await getCurrentPrice(coinId) });
+  } catch (error) {
+    response.status(500).json({ error: error.message || "Failed to load current price." });
+  }
+});
+
 app.get("/api/btc/prices", async (request, response) => {
   try {
     const start = String(request.query.start || "").slice(0, 10);
     const end = String(request.query.end || "").slice(0, 10);
     if (!start || !end || compareDateKeys(start, end) > 0) {
-      response.status(400).json({ error: "Invalid date range." });
+      response.status(400).json({ error: "Invalid request." });
       return;
     }
-    const prices = await getCachedDailyPrices(start, end);
+    const prices = await getCachedDailyPrices("bitcoin", start, end);
     response.json({ prices });
   } catch (error) {
-    response.status(500).json({ error: error.message || "Failed to load BTC prices." });
+    response.status(500).json({ error: error.message || "Failed to load market prices." });
   }
 });
 
 app.get("/api/btc/current", async (request, response) => {
   try {
-    response.json({ price: await getCurrentPrice() });
+    response.json({ price: await getCurrentPrice("bitcoin") });
   } catch (error) {
-    response.status(500).json({ error: error.message || "Failed to load current BTC price." });
+    response.status(500).json({ error: error.message || "Failed to load current price." });
   }
 });
 

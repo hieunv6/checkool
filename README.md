@@ -1,12 +1,13 @@
-# DCA BTC Calculator
+# DCA Crypto Calculator
 
-A client-side web tool for calculating and backtesting a Bitcoin Dollar-Cost Averaging (DCA) strategy using historical BTC market data.
+A web tool for calculating and backtesting Dollar-Cost Averaging (DCA) strategies across major crypto assets using historical market data.
 
 ## Features
 
-- Simulate BTC DCA with daily, weekly, biweekly, or monthly purchase schedules.
+- Select from the top 50 largest non-stablecoin crypto assets by market cap.
+- Simulate crypto DCA with daily, weekly, biweekly, or monthly purchase schedules.
 - Choose a custom start date and end date.
-- View total invested, accumulated BTC, average cost, current value, profit/loss, and profit/loss percentage.
+- View total invested, accumulated coin amount, average cost, current value, profit/loss, and profit/loss percentage.
 - Include a per-trade buy/sell fee percentage in the simulation.
 - Compare DCA against a Lump Sum strategy.
 - Visualize portfolio value versus total invested with Recharts.
@@ -21,7 +22,7 @@ A client-side web tool for calculating and backtesting a Bitcoin Dollar-Cost Ave
 - Vite
 - Tailwind CSS
 - Recharts
-- Public market data API
+- Public market data APIs
 - Express API server
 - SQLite cache
 - exchangerate.host with a `25400` VND/USD fallback rate
@@ -50,7 +51,7 @@ The API server runs at:
 http://127.0.0.1:8787/
 ```
 
-BTC daily prices are cached in:
+Daily coin prices are cached in:
 
 ```text
 data/checkool.sqlite
@@ -96,11 +97,12 @@ npm run serve
 The app reads state from query parameters and auto-runs the calculation on first load:
 
 ```text
-?amount=100&fee=0.1&freq=weekly&start=2021-01-01&end=2026-06-01&cur=USD
+?coin=bitcoin&amount=100&fee=0.1&freq=weekly&start=2021-01-01&end=2026-06-01&cur=USD
 ```
 
 Parameters:
 
+- `coin`: market data coin id, for example `bitcoin` or `ethereum`.
 - `amount`: purchase amount per interval, in USD.
 - `fee`: buy/sell fee per trade, as a percentage.
 - `freq`: `daily`, `weekly`, `biweekly`, or `monthly`.
@@ -126,6 +128,6 @@ vite.config.js        Vite React config and API proxy
 
 - The app has no authentication, `localStorage`, or `sessionStorage`.
 - DCA calculations run client-side.
-- BTC daily market prices are cached in SQLite after the first API request for a date range.
-- Current BTC price is cached briefly to avoid repeated calls during quick recalculations.
+- Daily coin market prices are cached in SQLite after the first API request for a date range.
+- Current coin prices are cached briefly to avoid repeated calls during quick recalculations.
 - This tool is for historical illustration only and is not investment advice.

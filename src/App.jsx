@@ -9,11 +9,12 @@ import {
   YAxis
 } from "recharts";
 import {
-  EARLIEST_BTCUSDT_DATE,
+  EARLIEST_MARKET_DATE,
   clampStartDate,
   compareDateKeys,
   fetchCurrentPrice,
   fetchHistoricalPrices,
+  fetchTopCoins,
   fetchUsdVndRate,
   generatePurchaseDates,
   simulateDCA,
@@ -39,7 +40,8 @@ const LANGUAGES = [
 
 const TRANSLATIONS = {
   vi: {
-    subtitle: "Backtest chiến lược mua BTC định kỳ bằng dữ liệu thị trường lịch sử.",
+    subtitle: "Backtest chiến lược mua coin định kỳ bằng dữ liệu thị trường lịch sử.",
+    coinLabel: "Coin",
     amountLabel: "Số tiền mỗi lần mua (USD)",
     feeLabel: "Phí mỗi lần mua/bán (%)",
     feeHelp: "Áp dụng cho mỗi lần mua và phí bán ước tính khi tính giá trị hiện tại.",
@@ -47,7 +49,7 @@ const TRANSLATIONS = {
     comparisonTitle: "So sánh DCA vs Lump Sum",
     copyLink: "Copy link kết quả",
     copiedLink: "Đã copy link",
-    currentBtc: "BTC hiện tại",
+    currentBtc: "Giá hiện tại",
     disclaimer: "Công cụ chỉ mang tính minh họa dựa trên dữ liệu lịch sử, không phải lời khuyên đầu tư.",
     emptyState: "Nhập thông tin và bấm Tính toán để xem kết quả backtest.",
     endDate: "Ngày kết thúc",
@@ -62,7 +64,7 @@ const TRANSLATIONS = {
     tableStrategy: "Chiến lược",
     tableValue: "Giá trị hiện tại",
     totalInvested: "Tổng đầu tư",
-    totalBtc: "Tổng BTC tích lũy",
+    totalBtc: "Tổng coin tích lũy",
     totalFees: "Tổng phí ước tính",
     avgCost: "Giá vốn trung bình",
     currentValue: "Giá trị hiện tại",
@@ -87,11 +89,12 @@ const TRANSLATIONS = {
       calculation: "Không thể tính toán lúc này. Vui lòng thử lại sau hoặc rút ngắn khoảng thời gian."
     },
     warnings: {
-      clampedStart: `Dữ liệu thị trường BTC bắt đầu từ ${EARLIEST_BTCUSDT_DATE}; đã dùng ngày này thay cho ngày bắt đầu.`
+      clampedStart: `Dữ liệu thị trường bắt đầu từ ${EARLIEST_MARKET_DATE}; đã dùng ngày này thay cho ngày bắt đầu.`
     }
   },
   en: {
-    subtitle: "Backtest recurring BTC purchases with historical market data.",
+    subtitle: "Backtest recurring crypto purchases with historical market data.",
+    coinLabel: "Coin",
     amountLabel: "Amount per purchase (USD)",
     feeLabel: "Fee per buy/sell (%)",
     feeHelp: "Applied to every purchase and the estimated sale fee used for current value.",
@@ -99,7 +102,7 @@ const TRANSLATIONS = {
     comparisonTitle: "DCA vs Lump Sum",
     copyLink: "Copy result link",
     copiedLink: "Link copied",
-    currentBtc: "Current BTC",
+    currentBtc: "Current price",
     disclaimer: "This tool is for historical illustration only and is not investment advice.",
     emptyState: "Enter your inputs and calculate to view the backtest result.",
     endDate: "End date",
@@ -114,7 +117,7 @@ const TRANSLATIONS = {
     tableStrategy: "Strategy",
     tableValue: "Current value",
     totalInvested: "Total invested",
-    totalBtc: "Accumulated BTC",
+    totalBtc: "Accumulated coin",
     totalFees: "Estimated total fees",
     avgCost: "Average cost",
     currentValue: "Current value",
@@ -139,11 +142,12 @@ const TRANSLATIONS = {
       calculation: "Unable to calculate right now. Please try again later or shorten the date range."
     },
     warnings: {
-      clampedStart: `BTC market data starts on ${EARLIEST_BTCUSDT_DATE}; this date was used as the start date.`
+      clampedStart: `Market data starts on ${EARLIEST_MARKET_DATE}; this date was used as the start date.`
     }
   },
   es: {
-    subtitle: "Haz backtest de compras recurrentes de BTC con datos históricos de mercado.",
+    subtitle: "Haz backtest de compras recurrentes de cripto con datos históricos de mercado.",
+    coinLabel: "Coin",
     amountLabel: "Importe por compra (USD)",
     feeLabel: "Comisión por compra/venta (%)",
     feeHelp: "Se aplica a cada compra y a la comisión de venta estimada para el valor actual.",
@@ -151,7 +155,7 @@ const TRANSLATIONS = {
     comparisonTitle: "DCA vs inversión única",
     copyLink: "Copiar enlace",
     copiedLink: "Enlace copiado",
-    currentBtc: "BTC actual",
+    currentBtc: "Precio actual",
     disclaimer: "Esta herramienta solo ilustra datos históricos y no es asesoramiento financiero.",
     emptyState: "Introduce los datos y calcula para ver el backtest.",
     endDate: "Fecha final",
@@ -166,7 +170,7 @@ const TRANSLATIONS = {
     tableStrategy: "Estrategia",
     tableValue: "Valor actual",
     totalInvested: "Total invertido",
-    totalBtc: "BTC acumulado",
+    totalBtc: "Coin acumulado",
     totalFees: "Comisiones estimadas",
     avgCost: "Coste medio",
     currentValue: "Valor actual",
@@ -191,11 +195,12 @@ const TRANSLATIONS = {
       calculation: "No se puede calcular ahora. Inténtalo más tarde o acorta el rango de fechas."
     },
     warnings: {
-      clampedStart: `Los datos de mercado de BTC empiezan el ${EARLIEST_BTCUSDT_DATE}; se usó esa fecha como inicio.`
+      clampedStart: `Los datos de mercado empiezan el ${EARLIEST_MARKET_DATE}; se usó esa fecha como inicio.`
     }
   },
   zh: {
-    subtitle: "使用历史市场数据回测定投 BTC 策略。",
+    subtitle: "使用历史市场数据回测加密货币定投策略。",
+    coinLabel: "币种",
     amountLabel: "每次购买金额 (USD)",
     feeLabel: "每次买/卖手续费 (%)",
     feeHelp: "适用于每次买入，并在计算当前价值时估算卖出手续费。",
@@ -203,7 +208,7 @@ const TRANSLATIONS = {
     comparisonTitle: "DCA vs 一次性投资",
     copyLink: "复制结果链接",
     copiedLink: "已复制链接",
-    currentBtc: "当前 BTC",
+    currentBtc: "当前价格",
     disclaimer: "本工具仅用于基于历史数据的说明，不构成投资建议。",
     emptyState: "输入参数并点击计算以查看回测结果。",
     endDate: "结束日期",
@@ -218,7 +223,7 @@ const TRANSLATIONS = {
     tableStrategy: "策略",
     tableValue: "当前价值",
     totalInvested: "总投入",
-    totalBtc: "累计 BTC",
+    totalBtc: "累计币数量",
     totalFees: "预计总手续费",
     avgCost: "平均成本",
     currentValue: "当前价值",
@@ -243,11 +248,12 @@ const TRANSLATIONS = {
       calculation: "当前无法计算。请稍后重试或缩短日期范围。"
     },
     warnings: {
-      clampedStart: `BTC 市场数据从 ${EARLIEST_BTCUSDT_DATE} 开始；已使用该日期作为开始日期。`
+      clampedStart: `市场数据从 ${EARLIEST_MARKET_DATE} 开始；已使用该日期作为开始日期。`
     }
   },
   ja: {
-    subtitle: "履歴市場データで BTC の積立戦略をバックテストします。",
+    subtitle: "履歴市場データで暗号資産の積立戦略をバックテストします。",
+    coinLabel: "コイン",
     amountLabel: "1回あたりの購入額 (USD)",
     feeLabel: "売買ごとの手数料 (%)",
     feeHelp: "各購入と、現在価値を計算する際の推定売却手数料に適用されます。",
@@ -255,7 +261,7 @@ const TRANSLATIONS = {
     comparisonTitle: "DCA vs 一括投資",
     copyLink: "結果リンクをコピー",
     copiedLink: "リンクをコピーしました",
-    currentBtc: "現在の BTC",
+    currentBtc: "現在価格",
     disclaimer: "このツールは過去データに基づく参考情報であり、投資助言ではありません。",
     emptyState: "条件を入力して計算するとバックテスト結果が表示されます。",
     endDate: "終了日",
@@ -270,7 +276,7 @@ const TRANSLATIONS = {
     tableStrategy: "戦略",
     tableValue: "現在価値",
     totalInvested: "総投資額",
-    totalBtc: "累積 BTC",
+    totalBtc: "累積コイン",
     totalFees: "推定合計手数料",
     avgCost: "平均取得単価",
     currentValue: "現在価値",
@@ -295,11 +301,12 @@ const TRANSLATIONS = {
       calculation: "現在計算できません。後でもう一度試すか、期間を短くしてください。"
     },
     warnings: {
-      clampedStart: `BTC 市場データは ${EARLIEST_BTCUSDT_DATE} から始まるため、この日付を開始日として使用しました。`
+      clampedStart: `市場データは ${EARLIEST_MARKET_DATE} から始まるため、この日付を開始日として使用しました。`
     }
   },
   ko: {
-    subtitle: "과거 시장 데이터로 BTC 정기 매수 전략을 백테스트합니다.",
+    subtitle: "과거 시장 데이터로 암호화폐 정기 매수 전략을 백테스트합니다.",
+    coinLabel: "코인",
     amountLabel: "회당 매수 금액 (USD)",
     feeLabel: "매수/매도당 수수료 (%)",
     feeHelp: "각 매수와 현재 가치 계산 시 추정 매도 수수료에 적용됩니다.",
@@ -307,7 +314,7 @@ const TRANSLATIONS = {
     comparisonTitle: "DCA vs 일시 매수",
     copyLink: "결과 링크 복사",
     copiedLink: "링크 복사됨",
-    currentBtc: "현재 BTC",
+    currentBtc: "현재 가격",
     disclaimer: "이 도구는 과거 데이터 기반 예시일 뿐이며 투자 조언이 아닙니다.",
     emptyState: "입력값을 넣고 계산하면 백테스트 결과가 표시됩니다.",
     endDate: "종료일",
@@ -322,7 +329,7 @@ const TRANSLATIONS = {
     tableStrategy: "전략",
     tableValue: "현재 가치",
     totalInvested: "총 투자금",
-    totalBtc: "누적 BTC",
+    totalBtc: "누적 코인",
     totalFees: "예상 총 수수료",
     avgCost: "평균 매수가",
     currentValue: "현재 가치",
@@ -347,12 +354,13 @@ const TRANSLATIONS = {
       calculation: "지금 계산할 수 없습니다. 나중에 다시 시도하거나 기간을 줄여 주세요."
     },
     warnings: {
-      clampedStart: `BTC 시장 데이터는 ${EARLIEST_BTCUSDT_DATE}부터 시작되어 해당 날짜를 시작일로 사용했습니다.`
+      clampedStart: `시장 데이터는 ${EARLIEST_MARKET_DATE}부터 시작되어 해당 날짜를 시작일로 사용했습니다.`
     }
   }
 };
 
 const DEFAULT_FORM = {
+  coinId: "bitcoin",
   amount: "100",
   fee: "0.1",
   frequency: "weekly",
@@ -365,6 +373,7 @@ function readInitialState() {
   const lang = LANGUAGES.some((language) => language.value === params.get("lang")) ? params.get("lang") : "vi";
   return {
     form: {
+      coinId: params.get("coin") || DEFAULT_FORM.coinId,
       amount: params.get("amount") || DEFAULT_FORM.amount,
       fee: params.get("fee") || DEFAULT_FORM.fee,
       frequency: params.get("freq") || DEFAULT_FORM.frequency,
@@ -382,6 +391,7 @@ const initialState = readInitialState();
 function buildShareUrl(form, currency, language) {
   const params = new URLSearchParams({
     amount: form.amount,
+    coin: form.coinId,
     fee: form.fee,
     freq: form.frequency,
     start: form.startDate,
@@ -401,11 +411,11 @@ function formatMoney(value, currency, rate) {
   }).format(converted);
 }
 
-function formatBTC(value) {
+function formatCoinAmount(value, symbol) {
   return `${new Intl.NumberFormat("en-US", {
     minimumFractionDigits: 0,
     maximumFractionDigits: 6
-  }).format(value)} BTC`;
+  }).format(value)} ${symbol || ""}`.trim();
 }
 
 function formatPercent(value) {
@@ -475,6 +485,7 @@ export default function App() {
   const [form, setForm] = useState(initialState.form);
   const [currency, setCurrency] = useState(initialState.currency);
   const [language, setLanguage] = useState(initialState.language);
+  const [coins, setCoins] = useState([]);
   const [usdVndRate, setUsdVndRate] = useState(25400);
   const [result, setResult] = useState(null);
   const [warning, setWarning] = useState("");
@@ -483,6 +494,9 @@ export default function App() {
   const [copied, setCopied] = useState(false);
   const hasAutoRunRef = useRef(false);
   const t = TRANSLATIONS[language] || TRANSLATIONS.vi;
+  const selectedCoin =
+    coins.find((coin) => coin.id === form.coinId) ||
+    { id: form.coinId, symbol: form.coinId === "bitcoin" ? "BTC" : form.coinId.toUpperCase(), name: form.coinId };
 
   const formError = validateForm(form, t);
   const isInvalid = Boolean(formError);
@@ -506,8 +520,8 @@ export default function App() {
       const purchaseDates = generatePurchaseDates(clampedStart, form.endDate, form.frequency);
 
       const [prices, currentPrice, rate] = await Promise.all([
-        fetchHistoricalPrices(clampedStart, form.endDate),
-        fetchCurrentPrice(),
+        fetchHistoricalPrices(form.coinId, clampedStart, form.endDate),
+        fetchCurrentPrice(form.coinId),
         fetchUsdVndRate()
       ]);
 
@@ -540,6 +554,20 @@ export default function App() {
       setIsLoading(false);
     }
   }, [currency, form, language, t]);
+
+  useEffect(() => {
+    let isMounted = true;
+    fetchTopCoins()
+      .then((topCoins) => {
+        if (isMounted) setCoins(topCoins);
+      })
+      .catch(() => {
+        if (isMounted) setCoins([]);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (initialState.shouldAutoRun && !hasAutoRunRef.current) {
@@ -586,7 +614,7 @@ export default function App() {
       <header className="border-b border-line bg-white">
         <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div>
-            <h1 className="text-2xl font-bold tracking-normal text-ink">DCA BTC Calculator</h1>
+            <h1 className="text-2xl font-bold tracking-normal text-ink">DCA Crypto Calculator</h1>
             <p className="mt-1 text-sm text-muted">{t.subtitle}</p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
@@ -626,6 +654,22 @@ export default function App() {
         <section className="h-fit rounded-lg border border-line bg-panel p-5 shadow-sm">
           <h2 className="text-lg font-semibold text-ink">{t.inputTitle}</h2>
           <div className="mt-5 grid gap-4">
+            <Field label={t.coinLabel}>
+              <select
+                value={form.coinId}
+                onChange={(event) => updateForm("coinId", event.target.value)}
+                className="h-11 rounded-lg border border-line bg-white px-3 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
+              >
+                {coins.length === 0 ? (
+                  <option value={form.coinId}>{selectedCoin.name}</option>
+                ) : null}
+                {coins.map((coin) => (
+                  <option key={coin.id} value={coin.id}>
+                    #{coin.marketCapRank} {coin.name} ({coin.symbol})
+                  </option>
+                ))}
+              </select>
+            </Field>
             <Field label={t.amountLabel}>
               <input
                 type="number"
@@ -702,7 +746,7 @@ export default function App() {
             ) : result ? (
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <StatCard label={t.totalInvested} value={money(result.dca.totalInvested)} />
-                <StatCard label={t.totalBtc} value={formatBTC(result.dca.totalBTC)} />
+                <StatCard label={t.totalBtc} value={formatCoinAmount(result.dca.totalBTC, selectedCoin.symbol)} />
                 <StatCard label={t.totalFees} value={money(result.dca.totalFees)} />
                 <StatCard label={t.avgCost} value={money(result.dca.avgCost)} />
                 <StatCard label={t.currentValue} value={money(result.dca.currentValue)} />
@@ -726,7 +770,9 @@ export default function App() {
                       {result.purchaseCount} {t.purchaseCount} {result.effectiveStart} - {form.endDate}
                     </p>
                   </div>
-                  <p className="text-sm text-muted">{t.currentBtc}: {money(result.currentPrice)}</p>
+                  <p className="text-sm text-muted">
+                    {t.currentBtc} {selectedCoin.symbol}: {money(result.currentPrice)}
+                  </p>
                 </div>
                 <div className="h-[320px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
@@ -772,7 +818,7 @@ export default function App() {
                     <thead>
                       <tr className="border-b border-line text-muted">
                         <th className="py-3 pr-4 font-semibold">{t.tableStrategy}</th>
-                        <th className="py-3 pr-4 font-semibold">BTC</th>
+                        <th className="py-3 pr-4 font-semibold">{selectedCoin.symbol}</th>
                         <th className="py-3 pr-4 font-semibold">{t.totalFees}</th>
                         <th className="py-3 pr-4 font-semibold">{t.tableValue}</th>
                         <th className="py-3 pr-4 font-semibold">{t.pnl}</th>
@@ -800,7 +846,7 @@ export default function App() {
                       ].map(([name, btc, fees, value, pnl, percent]) => (
                         <tr key={name} className="border-b border-line last:border-0">
                           <td className="py-3 pr-4 font-semibold text-ink">{name}</td>
-                          <td className="py-3 pr-4 text-ink">{formatBTC(btc)}</td>
+                          <td className="py-3 pr-4 text-ink">{formatCoinAmount(btc, selectedCoin.symbol)}</td>
                           <td className="py-3 pr-4 text-ink">{money(fees)}</td>
                           <td className="py-3 pr-4 text-ink">{money(value)}</td>
                           <td className={`py-3 pr-4 font-semibold ${pnl >= 0 ? "text-gain" : "text-loss"}`}>

@@ -1,11 +1,12 @@
 const EXCHANGE_RATE_URL = "https://api.exchangerate.host/latest?base=USD&symbols=VND";
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
-export const EARLIEST_BTCUSDT_DATE = "2017-08-17";
+export const EARLIEST_MARKET_DATE = "2017-08-17";
 export const FALLBACK_USD_VND = 25400;
 
 const priceCache = new Map();
-let currentPriceCache = null;
+const currentPriceCache = new Map();
+let topCoinsCache = null;
 let exchangeRateCache = null;
 
 export function normalizeDateInput(value) {
@@ -50,7 +51,7 @@ export function compareDateKeys(a, b) {
 
 export function clampStartDate(startDate) {
   const start = normalizeDateInput(startDate);
-  return compareDateKeys(start, EARLIEST_BTCUSDT_DATE) < 0 ? EARLIEST_BTCUSDT_DATE : start;
+  return compareDateKeys(start, EARLIEST_MARKET_DATE) < 0 ? EARLIEST_MARKET_DATE : start;
 }
 
 export function generatePurchaseDates(startDate, endDate, frequency) {
@@ -97,14 +98,25 @@ async function fetchWithRetry(url, retries = 3) {
   throw lastError;
 }
 
-export async function fetchHistoricalPrices(startDate, endDate) {
+export async function fetchTopCoins() {
+  if (topCoinsCache) return topCoinsCache;
+  const data = await fetchWithRetry("/api/coins/top");
+  const coins = Array.isArray(data?.coins) ? data.coins : [];
+  if (coins.length === 0) {
+    throw new Error("Không lấy được danh sách coin.");
+  }
+  topCoinsCache = coins;
+  return coins;
+}
+
+export async function fetchHistoricalPrices(coinId, startDate, endDate) {
   const startKey = clampStartDate(startDate);
   const endKey = normalizeDateInput(endDate);
-  const cacheKey = `${startKey}:${endKey}`;
+  const cacheKey = `${coinId}:${startKey}:${endKey}`;
   if (priceCache.has(cacheKey)) return priceCache.get(cacheKey);
 
   const params = new URLSearchParams({ start: startKey, end: endKey });
-  const data = await fetchWithRetry(`/api/btc/prices?${params.toString()}`);
+  const data = await fetchWithRetry(`/api/coins/${encodeURIComponent(coinId)}/prices?${params.toString()}`);
   const prices = Array.isArray(data?.prices) ? data.prices : [];
 
   const deduped = Array.from(new Map(prices.map((price) => [price.date, price])).values())
@@ -114,21 +126,21 @@ export async function fetchHistoricalPrices(startDate, endDate) {
     .sort((a, b) => compareDateKeys(a.date, b.date));
 
   if (deduped.length === 0) {
-    throw new Error("Không lấy được dữ liệu giá BTC.");
+    throw new Error("Không lấy được dữ liệu giá coin.");
   }
 
   priceCache.set(cacheKey, deduped);
   return deduped;
 }
 
-export async function fetchCurrentPrice() {
-  if (currentPriceCache) return currentPriceCache;
-  const data = await fetchWithRetry("/api/btc/current");
+export async function fetchCurrentPrice(coinId) {
+  if (currentPriceCache.has(coinId)) return currentPriceCache.get(coinId);
+  const data = await fetchWithRetry(`/api/coins/${encodeURIComponent(coinId)}/current`);
   const price = Number(data.price);
   if (!Number.isFinite(price) || price <= 0) {
-    throw new Error("Giá BTC hiện tại không hợp lệ.");
+    throw new Error("Giá hiện tại không hợp lệ.");
   }
-  currentPriceCache = price;
+  currentPriceCache.set(coinId, price);
   return price;
 }
 
@@ -224,7 +236,7 @@ export function simulateLumpSum(prices, totalInvested, startDate, currentPrice, 
 
   const startPrice = getPriceOnOrBefore(prices, startDate) || prices[0];
   if (!startPrice) {
-    throw new Error("Không có giá BTC tại ngày bắt đầu.");
+    throw new Error("Không có giá coin tại ngày bắt đầu.");
   }
 
   const buyFee = totalInvested * feeRate;
@@ -249,6 +261,7 @@ export function simulateLumpSum(prices, totalInvested, startDate, currentPrice, 
 
 export function clearPriceCacheForTests() {
   priceCache.clear();
-  currentPriceCache = null;
+  currentPriceCache.clear();
+  topCoinsCache = null;
   exchangeRateCache = null;
 }

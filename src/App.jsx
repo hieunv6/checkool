@@ -574,7 +574,6 @@ function CoinCombobox({ coins, selectedCoin, value, onChange, label }) {
                       {coin.symbol} · #{coin.marketCapRank}
                     </span>
                   </span>
-                  {value === coin.id ? <span className="text-sm font-semibold text-brand">Selected</span> : null}
                 </button>
               ))
             ) : (
@@ -633,7 +632,6 @@ function SimpleDropdown({ label, value, options, onChange, className = "" }) {
                 {option.icon ? <span className="shrink-0 text-base">{option.icon}</span> : null}
                 <span className="truncate font-semibold">{option.label}</span>
               </span>
-              {value === option.value ? <span className="text-xs font-semibold text-brand">Selected</span> : null}
             </button>
           ))}
         </div>
@@ -779,6 +777,14 @@ export default function App() {
     setForm((current) => ({ ...current, [field]: value }));
   }
 
+  function updateCoin(coinId) {
+    setForm((current) => ({ ...current, coinId }));
+    setResult(null);
+    setWarning("");
+    setError("");
+    setCopied(false);
+  }
+
   return (
     <main className="min-h-screen bg-[#F5F7F8]">
       <header className="border-b border-line bg-white">
@@ -821,7 +827,7 @@ export default function App() {
               coins={coins}
               selectedCoin={selectedCoin}
               value={form.coinId}
-              onChange={(coinId) => updateForm("coinId", coinId)}
+              onChange={updateCoin}
               label={t.coinLabel}
             />
             <Field label={t.amountLabel}>

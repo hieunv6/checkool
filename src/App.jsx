@@ -587,6 +587,61 @@ function CoinCombobox({ coins, selectedCoin, value, onChange, label }) {
   );
 }
 
+function SimpleDropdown({ label, value, options, onChange, className = "" }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const selectedOption = options.find((option) => option.value === value) || options[0];
+
+  function selectOption(option) {
+    onChange(option.value);
+    setIsOpen(false);
+  }
+
+  return (
+    <div
+      className={`relative grid gap-1 text-sm font-medium text-ink ${className}`}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) {
+          setIsOpen(false);
+        }
+      }}
+    >
+      {label ? <span>{label}</span> : null}
+      <button
+        type="button"
+        onClick={() => setIsOpen((current) => !current)}
+        className="flex h-11 w-full min-w-36 items-center justify-between gap-3 rounded-lg border border-line bg-white px-3 text-left text-sm outline-none transition hover:border-brand focus:border-brand focus:ring-2 focus:ring-brand/15"
+      >
+        <span className="flex min-w-0 items-center gap-2">
+          {selectedOption?.icon ? <span className="shrink-0 text-base">{selectedOption.icon}</span> : null}
+          <span className="truncate font-semibold text-ink">{selectedOption?.label}</span>
+        </span>
+        <span className="shrink-0 text-muted">⌄</span>
+      </button>
+
+      {isOpen ? (
+        <div className="absolute left-0 right-0 top-full z-30 mt-2 rounded-lg border border-line bg-white p-1 shadow-xl">
+          {options.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => selectOption(option)}
+              className={`flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-sm transition hover:bg-[#F5F7F8] ${
+                value === option.value ? "bg-teal-50 text-brand" : "text-ink"
+              }`}
+            >
+              <span className="flex min-w-0 items-center gap-2">
+                {option.icon ? <span className="shrink-0 text-base">{option.icon}</span> : null}
+                <span className="truncate font-semibold">{option.label}</span>
+              </span>
+              {value === option.value ? <span className="text-xs font-semibold text-brand">Selected</span> : null}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export default function App() {
   const [form, setForm] = useState(initialState.form);
   const [currency, setCurrency] = useState(initialState.currency);
@@ -603,6 +658,15 @@ export default function App() {
   const selectedCoin =
     coins.find((coin) => coin.id === form.coinId) ||
     { id: form.coinId, symbol: form.coinId === "bitcoin" ? "BTC" : form.coinId.toUpperCase(), name: form.coinId };
+  const languageOptions = LANGUAGES.map((item) => ({
+    ...item,
+    icon: { vi: "VI", en: "EN", es: "ES", zh: "ZH", ja: "JA", ko: "KO" }[item.value]
+  }));
+  const frequencyOptions = FREQUENCIES.map((frequency) => ({
+    value: frequency,
+    label: t.frequencies[frequency],
+    icon: { daily: "1D", weekly: "7D", biweekly: "14D", monthly: "1M" }[frequency]
+  }));
 
   const formError = validateForm(form, t);
   const isInvalid = Boolean(formError);
@@ -724,20 +788,13 @@ export default function App() {
             <p className="mt-1 text-sm text-muted">{t.subtitle}</p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-            <label className="grid gap-1 text-sm font-medium text-ink">
-              <span>{t.language}</span>
-              <select
-                value={language}
-                onChange={(event) => setLanguage(event.target.value)}
-                className="h-11 min-w-36 rounded-lg border border-line bg-white px-3 text-sm text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
-              >
-                {LANGUAGES.map((item) => (
-                  <option key={item.value} value={item.value}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <SimpleDropdown
+              label={t.language}
+              value={language}
+              options={languageOptions}
+              onChange={setLanguage}
+              className="min-w-36"
+            />
             <div className="inline-flex w-fit rounded-lg border border-line bg-[#F8FAFC] p-1">
               {["USD", "VND"].map((item) => (
                 <button
@@ -789,19 +846,12 @@ export default function App() {
               />
               <span className="text-xs font-normal text-muted">{t.feeHelp}</span>
             </Field>
-            <Field label={t.frequency}>
-              <select
-                value={form.frequency}
-                onChange={(event) => updateForm("frequency", event.target.value)}
-                className="h-11 rounded-lg border border-line bg-white px-3 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
-              >
-                {FREQUENCIES.map((frequency) => (
-                  <option key={frequency} value={frequency}>
-                    {t.frequencies[frequency]}
-                  </option>
-                ))}
-              </select>
-            </Field>
+            <SimpleDropdown
+              label={t.frequency}
+              value={form.frequency}
+              options={frequencyOptions}
+              onChange={(frequency) => updateForm("frequency", frequency)}
+            />
             <Field label={t.startDate}>
               <input
                 type="date"

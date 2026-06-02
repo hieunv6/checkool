@@ -354,7 +354,7 @@ const TRANSLATIONS = {
 
 const DEFAULT_FORM = {
   amount: "100",
-  fee: "0",
+  fee: "0.1",
   frequency: "weekly",
   startDate: "2021-01-01",
   endDate: todayKey()
@@ -373,7 +373,7 @@ function readInitialState() {
     },
     currency: params.get("cur") === "VND" ? "VND" : "USD",
     language: lang,
-    shouldAutoRun: Boolean(params.get("amount") && params.get("freq") && params.get("start"))
+    shouldAutoRun: true
   };
 }
 

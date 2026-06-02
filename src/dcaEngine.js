@@ -1,4 +1,3 @@
-const MARKET_DATA_BASE_URL = "https://api.binance.com/api/v3";
 const EXCHANGE_RATE_URL = "https://api.exchangerate.host/latest?base=USD&symbols=VND";
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -104,35 +103,14 @@ export async function fetchHistoricalPrices(startDate, endDate) {
   const cacheKey = `${startKey}:${endKey}`;
   if (priceCache.has(cacheKey)) return priceCache.get(cacheKey);
 
-  const prices = [];
-  let cursor = parseDateKey(startKey).getTime();
-  const endTime = parseDateKey(endKey).getTime() + ONE_DAY_MS - 1;
-
-  while (cursor <= endTime) {
-    const params = new URLSearchParams({
-      symbol: "BTCUSDT",
-      interval: "1d",
-      startTime: String(cursor),
-      endTime: String(endTime),
-      limit: "1000"
-    });
-    const rows = await fetchWithRetry(`${MARKET_DATA_BASE_URL}/klines?${params.toString()}`);
-    if (!Array.isArray(rows) || rows.length === 0) break;
-
-    for (const row of rows) {
-      prices.push({
-        date: toDateKey(new Date(row[0])),
-        close: Number(row[4])
-      });
-    }
-
-    const nextCursor = Number(rows[rows.length - 1][0]) + ONE_DAY_MS;
-    if (nextCursor <= cursor) break;
-    cursor = nextCursor;
-  }
+  const params = new URLSearchParams({ start: startKey, end: endKey });
+  const data = await fetchWithRetry(`/api/btc/prices?${params.toString()}`);
+  const prices = Array.isArray(data?.prices) ? data.prices : [];
 
   const deduped = Array.from(new Map(prices.map((price) => [price.date, price])).values())
     .filter((price) => compareDateKeys(price.date, startKey) >= 0 && compareDateKeys(price.date, endKey) <= 0)
+    .map((price) => ({ date: normalizeDateInput(price.date), close: Number(price.close) }))
+    .filter((price) => Number.isFinite(price.close) && price.close > 0)
     .sort((a, b) => compareDateKeys(a.date, b.date));
 
   if (deduped.length === 0) {
@@ -145,7 +123,7 @@ export async function fetchHistoricalPrices(startDate, endDate) {
 
 export async function fetchCurrentPrice() {
   if (currentPriceCache) return currentPriceCache;
-  const data = await fetchWithRetry(`${MARKET_DATA_BASE_URL}/ticker/price?symbol=BTCUSDT`);
+  const data = await fetchWithRetry("/api/btc/current");
   const price = Number(data.price);
   if (!Number.isFinite(price) || price <= 0) {
     throw new Error("Giá BTC hiện tại không hợp lệ.");

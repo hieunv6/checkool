@@ -22,6 +22,8 @@ A client-side web tool for calculating and backtesting a Bitcoin Dollar-Cost Ave
 - Tailwind CSS
 - Recharts
 - Public market data API
+- Express API server
+- SQLite cache
 - exchangerate.host with a `25400` VND/USD fallback rate
 
 ## Installation
@@ -36,16 +38,29 @@ npm install
 npm run dev
 ```
 
-Vite normally serves the app at:
+This starts both the API server and Vite. Vite normally serves the app at:
 
 ```text
 http://127.0.0.1:5173/
 ```
 
-To bind the host explicitly:
+The API server runs at:
+
+```text
+http://127.0.0.1:8787/
+```
+
+BTC daily prices are cached in:
+
+```text
+data/checkool.sqlite
+```
+
+To run each process separately:
 
 ```bash
-npm run dev -- --host 127.0.0.1
+npm run dev:api
+npm run dev:web
 ```
 
 ## Test
@@ -70,9 +85,15 @@ npm run build
 
 The production output is generated in `dist/` and can be deployed to Cloudflare Pages, Netlify, or any equivalent static hosting provider.
 
+To serve the built app with the SQLite-backed API:
+
+```bash
+npm run serve
+```
+
 ## URL State
 
-The app reads state from query parameters and auto-runs the calculation when enough inputs are present:
+The app reads state from query parameters and auto-runs the calculation on first load:
 
 ```text
 ?amount=100&fee=0.1&freq=weekly&start=2021-01-01&end=2026-06-01&cur=USD
@@ -97,11 +118,14 @@ src/
   dcaEngine.test.js   Node tests for core calculations
   main.jsx            React entry point
   styles.css          Tailwind entry and base styles
+server.js             Express API server and SQLite cache
+vite.config.js        Vite React config and API proxy
 ```
 
 ## Notes
 
-- The app has no backend, database, authentication, `localStorage`, or `sessionStorage`.
-- All calculations run client-side.
-- BTC prices use daily close market data.
+- The app has no authentication, `localStorage`, or `sessionStorage`.
+- DCA calculations run client-side.
+- BTC daily market prices are cached in SQLite after the first API request for a date range.
+- Current BTC price is cached briefly to avoid repeated calls during quick recalculations.
 - This tool is for historical illustration only and is not investment advice.

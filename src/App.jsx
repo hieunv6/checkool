@@ -447,9 +447,9 @@ function Field({ label, children }) {
 function StatCard({ label, value, tone = "default" }) {
   const toneClass = tone === "gain" ? "text-gain" : tone === "loss" ? "text-loss" : "text-ink";
   return (
-    <div className="rounded-lg border border-line bg-panel p-4 shadow-sm">
+    <div className="min-w-0 rounded-lg border border-line bg-panel p-4 shadow-sm">
       <p className="text-sm text-muted">{label}</p>
-      <p className={`mt-2 break-words text-xl font-semibold ${toneClass}`}>{value}</p>
+      <p className={`mt-2 break-words text-lg font-semibold sm:text-xl ${toneClass}`}>{value}</p>
     </div>
   );
 }
@@ -529,7 +529,7 @@ function CoinCombobox({ coins, selectedCoin, value, onChange, label }) {
       <button
         type="button"
         onClick={() => setIsOpen((current) => !current)}
-        className="flex h-12 w-full items-center gap-3 rounded-lg border border-line bg-white px-3 text-left outline-none transition hover:border-brand focus:border-brand focus:ring-2 focus:ring-brand/15"
+        className="flex min-h-12 w-full items-center gap-3 rounded-lg border border-line bg-white px-3 py-2 text-left outline-none transition hover:border-brand focus:border-brand focus:ring-2 focus:ring-brand/15"
       >
         <CoinIcon coin={selectedCoin} />
         <span className="min-w-0 flex-1">
@@ -544,7 +544,7 @@ function CoinCombobox({ coins, selectedCoin, value, onChange, label }) {
 
       {isOpen ? (
         <div
-          className="absolute left-0 right-0 top-full z-20 mt-2 rounded-lg border border-line bg-white p-2 shadow-xl"
+          className="absolute left-0 right-0 top-full z-40 mt-2 rounded-lg border border-line bg-white p-2 shadow-xl"
           onMouseDown={(event) => event.preventDefault()}
         >
           <input
@@ -556,7 +556,7 @@ function CoinCombobox({ coins, selectedCoin, value, onChange, label }) {
             onBlur={() => setIsOpen(false)}
             className="h-10 w-full rounded-lg border border-line px-3 text-sm font-normal text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
           />
-          <div className="mt-2 max-h-72 overflow-y-auto">
+          <div className="mt-2 max-h-[min(18rem,calc(100vh-14rem))] overflow-y-auto">
             {filteredCoins.length > 0 ? (
               filteredCoins.map((coin) => (
                 <button
@@ -597,7 +597,7 @@ function SimpleDropdown({ label, value, options, onChange, className = "" }) {
 
   return (
     <div
-      className={`relative grid gap-1 text-sm font-medium text-ink ${className}`}
+      className={`relative grid min-w-0 gap-1 text-sm font-medium text-ink ${className}`}
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget)) {
           setIsOpen(false);
@@ -608,7 +608,7 @@ function SimpleDropdown({ label, value, options, onChange, className = "" }) {
       <button
         type="button"
         onClick={() => setIsOpen((current) => !current)}
-        className="flex h-11 w-full min-w-36 items-center justify-between gap-3 rounded-lg border border-line bg-white px-3 text-left text-sm outline-none transition hover:border-brand focus:border-brand focus:ring-2 focus:ring-brand/15"
+        className="flex h-11 w-full min-w-0 items-center justify-between gap-3 rounded-lg border border-line bg-white px-3 text-left text-sm outline-none transition hover:border-brand focus:border-brand focus:ring-2 focus:ring-brand/15"
       >
         <span className="flex min-w-0 items-center gap-2">
           {selectedOption?.icon ? <span className="shrink-0 text-base">{selectedOption.icon}</span> : null}
@@ -618,7 +618,7 @@ function SimpleDropdown({ label, value, options, onChange, className = "" }) {
       </button>
 
       {isOpen ? (
-        <div className="absolute left-0 right-0 top-full z-30 mt-2 rounded-lg border border-line bg-white p-1 shadow-xl">
+        <div className="absolute left-0 right-0 top-full z-40 mt-2 rounded-lg border border-line bg-white p-1 shadow-xl">
           {options.map((option) => (
             <button
               key={option.value}
@@ -788,26 +788,26 @@ export default function App() {
   return (
     <main className="min-h-screen bg-[#F5F7F8]">
       <header className="border-b border-line bg-white">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-          <div>
-            <h1 className="text-2xl font-bold tracking-normal text-ink">DCA Crypto Calculator</h1>
+        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-3 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-5">
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold tracking-normal text-ink sm:text-2xl">DCA Crypto Calculator</h1>
             <p className="mt-1 text-sm text-muted">{t.subtitle}</p>
           </div>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-end">
             <SimpleDropdown
               label={t.language}
               value={language}
               options={languageOptions}
               onChange={setLanguage}
-              className="min-w-36"
+              className="w-full sm:w-40"
             />
-            <div className="inline-flex w-fit rounded-lg border border-line bg-[#F8FAFC] p-1">
+            <div className="inline-flex w-full rounded-lg border border-line bg-[#F8FAFC] p-1 sm:w-fit">
               {["USD", "VND"].map((item) => (
                 <button
                   key={item}
                   type="button"
                   onClick={() => setCurrency(item)}
-                  className={`h-10 min-w-16 rounded-md px-4 text-sm font-semibold transition ${
+                  className={`h-10 min-w-16 flex-1 rounded-md px-4 text-sm font-semibold transition sm:flex-none ${
                     currency === item ? "bg-brand text-white shadow-sm" : "text-muted hover:text-ink"
                   }`}
                 >
@@ -819,8 +819,8 @@ export default function App() {
         </div>
       </header>
 
-      <div className="mx-auto grid max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[360px_1fr]">
-        <section className="h-fit rounded-lg border border-line bg-panel p-5 shadow-sm">
+      <div className="mx-auto grid max-w-6xl gap-4 px-3 py-4 sm:gap-6 sm:px-6 sm:py-6 lg:grid-cols-[360px_minmax(0,1fr)]">
+        <section className="h-fit rounded-lg border border-line bg-panel p-4 shadow-sm sm:p-5">
           <h2 className="text-lg font-semibold text-ink">{t.inputTitle}</h2>
           <div className="mt-5 grid gap-4">
             <CoinCombobox
@@ -837,7 +837,7 @@ export default function App() {
                 step="1"
                 value={form.amount}
                 onChange={(event) => updateForm("amount", event.target.value)}
-                className="h-11 rounded-lg border border-line bg-white px-3 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
+                className="h-11 w-full rounded-lg border border-line bg-white px-3 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
               />
             </Field>
             <Field label={t.feeLabel}>
@@ -848,7 +848,7 @@ export default function App() {
                 step="0.01"
                 value={form.fee}
                 onChange={(event) => updateForm("fee", event.target.value)}
-                className="h-11 rounded-lg border border-line bg-white px-3 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
+                className="h-11 w-full rounded-lg border border-line bg-white px-3 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
               />
               <span className="text-xs font-normal text-muted">{t.feeHelp}</span>
             </Field>
@@ -864,7 +864,7 @@ export default function App() {
                 value={form.startDate}
                 max={todayKey()}
                 onChange={(event) => updateForm("startDate", event.target.value)}
-                className="h-11 rounded-lg border border-line bg-white px-3 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
+                className="h-11 w-full rounded-lg border border-line bg-white px-3 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
               />
             </Field>
             <Field label={t.endDate}>
@@ -873,7 +873,7 @@ export default function App() {
                 value={form.endDate}
                 max={todayKey()}
                 onChange={(event) => updateForm("endDate", event.target.value)}
-                className="h-11 rounded-lg border border-line bg-white px-3 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
+                className="h-11 w-full rounded-lg border border-line bg-white px-3 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
               />
             </Field>
             {formError ? <p className="rounded-lg bg-red-50 p-3 text-sm text-loss">{formError}</p> : null}
@@ -881,14 +881,14 @@ export default function App() {
               type="button"
               disabled={isInvalid || isLoading}
               onClick={runCalculation}
-              className="h-11 rounded-lg bg-brand px-4 text-sm font-semibold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+              className="h-11 w-full rounded-lg bg-brand px-4 text-sm font-semibold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-300"
             >
               {isLoading ? t.loading : t.submit}
             </button>
           </div>
         </section>
 
-        <section className="grid gap-6">
+        <section className="grid min-w-0 gap-4 sm:gap-6">
           {warning ? <div className="rounded-lg border border-gold/30 bg-amber-50 p-4 text-sm text-amber-800">{warning}</div> : null}
           {error ? <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-loss">{error}</div> : null}
 
@@ -897,7 +897,7 @@ export default function App() {
             {isLoading ? (
               <LoadingSkeleton />
             ) : result ? (
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 <StatCard label={t.totalInvested} value={money(result.dca.totalInvested)} />
                 <StatCard label={t.totalBtc} value={formatCoinAmount(result.dca.totalBTC, selectedCoin.symbol)} />
                 <StatCard label={t.totalFees} value={money(result.dca.totalFees)} />
@@ -915,24 +915,24 @@ export default function App() {
 
           {result ? (
             <>
-              <section className="rounded-lg border border-line bg-panel p-4 shadow-sm">
-                <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-                  <div className="flex items-center gap-3">
+              <section className="rounded-lg border border-line bg-panel p-3 shadow-sm sm:p-4">
+                <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+                  <div className="flex min-w-0 items-center gap-3">
                     <CoinIcon coin={selectedCoin} />
-                    <div>
+                    <div className="min-w-0">
                       <h2 className="text-lg font-semibold text-ink">{t.chartTitle}</h2>
-                      <p className="text-sm text-muted">
+                      <p className="break-words text-sm text-muted">
                         {selectedCoin.name} · {result.purchaseCount} {t.purchaseCount} {result.effectiveStart} - {form.endDate}
                       </p>
                     </div>
                   </div>
-                  <p className="text-sm text-muted">
+                  <p className="text-sm text-muted md:text-right">
                     {t.currentBtc} {selectedCoin.symbol}: {money(result.currentPrice)}
                   </p>
                 </div>
-                <div className="h-[320px] w-full">
+                <div className="h-[260px] w-full sm:h-[320px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData} margin={{ top: 12, right: 12, left: 4, bottom: 0 }}>
+                    <LineChart data={chartData} margin={{ top: 12, right: 8, left: 0, bottom: 0 }}>
                       <CartesianGrid stroke="#E4E7EC" strokeDasharray="4 4" />
                       <XAxis dataKey="date" minTickGap={28} tick={{ fontSize: 12, fill: "#667085" }} />
                       <YAxis
@@ -967,10 +967,10 @@ export default function App() {
                 </div>
               </section>
 
-              <section className="rounded-lg border border-line bg-panel p-4 shadow-sm">
+              <section className="rounded-lg border border-line bg-panel p-3 shadow-sm sm:p-4">
                 <h2 className="text-lg font-semibold text-ink">{t.comparisonTitle}</h2>
                 <div className="mt-4 overflow-x-auto">
-                  <table className="w-full min-w-[640px] border-collapse text-left text-sm">
+                  <table className="w-full min-w-[640px] border-collapse text-left text-xs sm:text-sm">
                     <thead>
                       <tr className="border-b border-line text-muted">
                         <th className="py-3 pr-4 font-semibold">{t.tableStrategy}</th>
@@ -1022,7 +1022,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={copyShareLink}
-                  className="h-11 rounded-lg border border-brand px-4 text-sm font-semibold text-brand transition hover:bg-teal-50"
+                  className="h-11 w-full rounded-lg border border-brand px-4 text-sm font-semibold text-brand transition hover:bg-teal-50 sm:w-auto"
                 >
                   {copied ? t.copiedLink : t.copyLink}
                 </button>

@@ -265,6 +265,34 @@ export function simulateLumpSum(prices, totalInvested, startDate, currentPrice, 
   };
 }
 
+export function calculateYearlyCagr(snapshots) {
+  if (!Array.isArray(snapshots) || snapshots.length === 0) return [];
+
+  const firstDate = new Date(`${snapshots[0].date}T00:00:00Z`);
+  const lastSnapshotByYear = new Map();
+
+  for (const snapshot of snapshots) {
+    const year = snapshot.date.slice(0, 4);
+    lastSnapshotByYear.set(year, snapshot);
+  }
+
+  return Array.from(lastSnapshotByYear.entries()).map(([year, snapshot]) => {
+    const snapshotDate = new Date(`${snapshot.date}T00:00:00Z`);
+    const elapsedDays = Math.max(1, (snapshotDate.getTime() - firstDate.getTime()) / ONE_DAY_MS);
+    const elapsedYears = elapsedDays / 365.25;
+    const multiple = snapshot.totalInvested > 0 ? snapshot.portfolioValue / snapshot.totalInvested : 0;
+    const cagrPercent = multiple > 0 ? (multiple ** (1 / elapsedYears) - 1) * 100 : 0;
+
+    return {
+      year,
+      date: snapshot.date,
+      totalInvested: snapshot.totalInvested,
+      portfolioValue: snapshot.portfolioValue,
+      cagrPercent
+    };
+  });
+}
+
 export function clearPriceCacheForTests() {
   priceCache.clear();
   currentPriceCache.clear();

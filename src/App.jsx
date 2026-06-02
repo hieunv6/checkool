@@ -9,6 +9,7 @@ import {
   YAxis
 } from "recharts";
 import {
+  calculateYearlyCagr,
   EARLIEST_MARKET_DATE,
   clampStartDate,
   compareDateKeys,
@@ -79,6 +80,11 @@ const TRANSLATIONS = {
     orderFee: "Phí",
     orderCoinBought: "Coin mua",
     orderTotalCoin: "Tổng coin",
+    yearlyCagrTitle: "CAGR theo từng năm",
+    cagrYear: "Năm",
+    cagrDate: "Mốc tính",
+    cagrValue: "Giá trị danh mục",
+    cagrPercent: "CAGR",
     frequencies: {
       daily: "Hàng ngày",
       weekly: "Hàng tuần",
@@ -139,6 +145,11 @@ const TRANSLATIONS = {
     orderFee: "Fee",
     orderCoinBought: "Coin bought",
     orderTotalCoin: "Total coin",
+    yearlyCagrTitle: "Yearly CAGR",
+    cagrYear: "Year",
+    cagrDate: "As of",
+    cagrValue: "Portfolio value",
+    cagrPercent: "CAGR",
     frequencies: {
       daily: "Daily",
       weekly: "Weekly",
@@ -199,6 +210,11 @@ const TRANSLATIONS = {
     orderFee: "Comisión",
     orderCoinBought: "Coin comprado",
     orderTotalCoin: "Coin total",
+    yearlyCagrTitle: "CAGR por año",
+    cagrYear: "Año",
+    cagrDate: "Fecha",
+    cagrValue: "Valor de cartera",
+    cagrPercent: "CAGR",
     frequencies: {
       daily: "Diaria",
       weekly: "Semanal",
@@ -259,6 +275,11 @@ const TRANSLATIONS = {
     orderFee: "手续费",
     orderCoinBought: "买入数量",
     orderTotalCoin: "累计数量",
+    yearlyCagrTitle: "年度 CAGR",
+    cagrYear: "年份",
+    cagrDate: "截至日期",
+    cagrValue: "组合价值",
+    cagrPercent: "CAGR",
     frequencies: {
       daily: "每日",
       weekly: "每周",
@@ -319,6 +340,11 @@ const TRANSLATIONS = {
     orderFee: "手数料",
     orderCoinBought: "購入数量",
     orderTotalCoin: "累積数量",
+    yearlyCagrTitle: "年別 CAGR",
+    cagrYear: "年",
+    cagrDate: "基準日",
+    cagrValue: "ポートフォリオ価値",
+    cagrPercent: "CAGR",
     frequencies: {
       daily: "毎日",
       weekly: "毎週",
@@ -379,6 +405,11 @@ const TRANSLATIONS = {
     orderFee: "수수료",
     orderCoinBought: "매수 수량",
     orderTotalCoin: "누적 수량",
+    yearlyCagrTitle: "연도별 CAGR",
+    cagrYear: "연도",
+    cagrDate: "기준일",
+    cagrValue: "포트폴리오 가치",
+    cagrPercent: "CAGR",
     frequencies: {
       daily: "매일",
       weekly: "매주",
@@ -819,6 +850,10 @@ export default function App() {
       portfolioValue: point.portfolioValue
     }));
   }, [result]);
+  const yearlyCagr = useMemo(() => {
+    if (!result) return [];
+    return calculateYearlyCagr(result.dca.snapshots);
+  }, [result]);
 
   const money = useCallback((value) => formatMoney(value, currency, usdVndRate), [currency, usdVndRate]);
   const chartNumberFormatter = useMemo(
@@ -1083,6 +1118,36 @@ export default function App() {
                           </td>
                           <td className="px-3 py-3 text-ink">
                             {formatCoinAmount(order.totalCoin, selectedCoin.symbol)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
+              <section className="rounded-lg border border-line bg-panel p-3 shadow-sm sm:p-4">
+                <h2 className="text-lg font-semibold text-ink">{t.yearlyCagrTitle}</h2>
+                <div className="mt-4 overflow-x-auto rounded-lg border border-line">
+                  <table className="w-full min-w-[560px] border-collapse bg-white text-left text-xs sm:text-sm">
+                    <thead className="bg-[#F8FAFC] text-muted">
+                      <tr className="border-b border-line">
+                        <th className="px-3 py-3 font-semibold">{t.cagrYear}</th>
+                        <th className="px-3 py-3 font-semibold">{t.cagrDate}</th>
+                        <th className="px-3 py-3 font-semibold">{t.totalInvested}</th>
+                        <th className="px-3 py-3 font-semibold">{t.cagrValue}</th>
+                        <th className="px-3 py-3 font-semibold">{t.cagrPercent}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {yearlyCagr.map((row) => (
+                        <tr key={row.year} className="border-b border-line last:border-0">
+                          <td className="px-3 py-3 font-semibold text-ink">{row.year}</td>
+                          <td className="px-3 py-3 text-ink">{row.date}</td>
+                          <td className="px-3 py-3 text-ink">{money(row.totalInvested)}</td>
+                          <td className="px-3 py-3 text-ink">{money(row.portfolioValue)}</td>
+                          <td className={`px-3 py-3 font-semibold ${row.cagrPercent >= 0 ? "text-gain" : "text-loss"}`}>
+                            {formatPercent(row.cagrPercent)}
                           </td>
                         </tr>
                       ))}

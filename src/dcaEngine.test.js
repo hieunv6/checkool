@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  calculateYearlyCagr,
   generatePurchaseDates,
   getPriceOnOrBefore,
   simulateDCA,
@@ -106,4 +107,19 @@ test("lump sum simulation applies buy and sell fees", () => {
   assert.equal(result.buyFee, 1);
   assert.equal(result.sellFee, 1.98);
   assert.equal(result.value, 196.02);
+});
+
+test("yearly CAGR uses the last snapshot of each year", () => {
+  const result = calculateYearlyCagr([
+    { date: "2024-01-01", totalInvested: 100, portfolioValue: 100 },
+    { date: "2024-12-31", totalInvested: 200, portfolioValue: 300 },
+    { date: "2025-12-31", totalInvested: 300, portfolioValue: 600 }
+  ]);
+
+  assert.equal(result.length, 2);
+  assert.equal(result[0].year, "2024");
+  assert.equal(result[0].date, "2024-12-31");
+  assert.equal(result[1].year, "2025");
+  assert.equal(result[1].date, "2025-12-31");
+  assert.ok(result[1].cagrPercent > 40);
 });

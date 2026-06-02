@@ -47,6 +47,17 @@ test("DCA simulation calculates totals and snapshots", () => {
   assert.equal(result.totalBTC, 1.5);
   assert.equal(result.currentValue, 450);
   assert.equal(result.snapshots.length, 2);
+  assert.deepEqual(result.snapshots[0], {
+    date: "2024-01-01",
+    price: 100,
+    amount: 100,
+    fee: 0,
+    netAmount: 100,
+    coinBought: 1,
+    totalCoin: 1,
+    totalInvested: 100,
+    portfolioValue: 100
+  });
 });
 
 test("DCA simulation applies buy and sell fees", () => {

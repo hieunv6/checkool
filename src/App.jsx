@@ -72,6 +72,13 @@ const TRANSLATIONS = {
     pnlPercent: "Lãi/Lỗ %",
     portfolioLine: "Giá trị danh mục",
     investedLine: "Tổng tiền đã bỏ vào",
+    orderHistoryTitle: "Lịch sử lệnh",
+    orderDate: "Ngày",
+    orderPrice: "Giá mua",
+    orderAmount: "Số tiền",
+    orderFee: "Phí",
+    orderCoinBought: "Coin mua",
+    orderTotalCoin: "Tổng coin",
     frequencies: {
       daily: "Hàng ngày",
       weekly: "Hàng tuần",
@@ -125,6 +132,13 @@ const TRANSLATIONS = {
     pnlPercent: "Profit/Loss %",
     portfolioLine: "Portfolio value",
     investedLine: "Total invested",
+    orderHistoryTitle: "Order history",
+    orderDate: "Date",
+    orderPrice: "Buy price",
+    orderAmount: "Amount",
+    orderFee: "Fee",
+    orderCoinBought: "Coin bought",
+    orderTotalCoin: "Total coin",
     frequencies: {
       daily: "Daily",
       weekly: "Weekly",
@@ -178,6 +192,13 @@ const TRANSLATIONS = {
     pnlPercent: "Ganancia/Pérdida %",
     portfolioLine: "Valor de la cartera",
     investedLine: "Total invertido",
+    orderHistoryTitle: "Historial de órdenes",
+    orderDate: "Fecha",
+    orderPrice: "Precio de compra",
+    orderAmount: "Importe",
+    orderFee: "Comisión",
+    orderCoinBought: "Coin comprado",
+    orderTotalCoin: "Coin total",
     frequencies: {
       daily: "Diaria",
       weekly: "Semanal",
@@ -231,6 +252,13 @@ const TRANSLATIONS = {
     pnlPercent: "盈亏 %",
     portfolioLine: "组合价值",
     investedLine: "总投入",
+    orderHistoryTitle: "订单历史",
+    orderDate: "日期",
+    orderPrice: "买入价格",
+    orderAmount: "金额",
+    orderFee: "手续费",
+    orderCoinBought: "买入数量",
+    orderTotalCoin: "累计数量",
     frequencies: {
       daily: "每日",
       weekly: "每周",
@@ -284,6 +312,13 @@ const TRANSLATIONS = {
     pnlPercent: "損益 %",
     portfolioLine: "ポートフォリオ価値",
     investedLine: "総投資額",
+    orderHistoryTitle: "注文履歴",
+    orderDate: "日付",
+    orderPrice: "購入価格",
+    orderAmount: "金額",
+    orderFee: "手数料",
+    orderCoinBought: "購入数量",
+    orderTotalCoin: "累積数量",
     frequencies: {
       daily: "毎日",
       weekly: "毎週",
@@ -337,6 +372,13 @@ const TRANSLATIONS = {
     pnlPercent: "손익 %",
     portfolioLine: "포트폴리오 가치",
     investedLine: "총 투자금",
+    orderHistoryTitle: "주문 내역",
+    orderDate: "날짜",
+    orderPrice: "매수가",
+    orderAmount: "금액",
+    orderFee: "수수료",
+    orderCoinBought: "매수 수량",
+    orderTotalCoin: "누적 수량",
     frequencies: {
       daily: "매일",
       weekly: "매주",
@@ -827,15 +869,15 @@ export default function App() {
             <h1 className="text-xl font-bold tracking-normal text-ink sm:text-2xl">DCA Crypto Calculator</h1>
             <p className="mt-1 text-sm text-muted">{t.subtitle}</p>
           </div>
-          <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-end">
+          <div className="flex w-full flex-row gap-3 sm:w-auto sm:items-end">
             <SimpleDropdown
               label={t.language}
               value={language}
               options={languageOptions}
               onChange={setLanguage}
-              className="w-full sm:w-40"
+              className="flex-1 sm:w-40"
             />
-            <div className="inline-flex w-full rounded-lg border border-line bg-[#F8FAFC] p-1 sm:w-fit">
+            <div className="inline-flex shrink-0 self-end rounded-lg border border-line bg-[#F8FAFC] p-1 sm:w-fit">
               {["USD", "VND"].map((item) => (
                 <button
                   key={item}
@@ -931,7 +973,7 @@ export default function App() {
             {isLoading ? (
               <LoadingSkeleton />
             ) : result ? (
-              <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="grid min-w-0 grid-cols-2 gap-3 xl:grid-cols-3">
                 <StatCard label={t.totalInvested} value={money(result.dca.totalInvested)} />
                 <StatCard label={t.totalBtc} value={formatCoinAmount(result.dca.totalBTC, selectedCoin.symbol)} />
                 <StatCard label={t.totalFees} value={money(result.dca.totalFees)} />
@@ -1006,6 +1048,45 @@ export default function App() {
                       </LineChart>
                     </ResponsiveContainer>
                   </div>
+                </div>
+              </section>
+
+              <section className="rounded-lg border border-line bg-panel p-3 shadow-sm sm:p-4">
+                <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                  <h2 className="text-lg font-semibold text-ink">{t.orderHistoryTitle}</h2>
+                  <p className="text-sm text-muted">
+                    {result.dca.snapshots.length} {t.purchaseCount} {result.effectiveStart} - {form.endDate}
+                  </p>
+                </div>
+                <div className="max-h-[420px] overflow-auto rounded-lg border border-line">
+                  <table className="w-full min-w-[760px] border-collapse bg-white text-left text-xs sm:text-sm">
+                    <thead className="sticky top-0 z-10 bg-[#F8FAFC] text-muted">
+                      <tr className="border-b border-line">
+                        <th className="px-3 py-3 font-semibold">{t.orderDate}</th>
+                        <th className="px-3 py-3 font-semibold">{t.orderPrice}</th>
+                        <th className="px-3 py-3 font-semibold">{t.orderAmount}</th>
+                        <th className="px-3 py-3 font-semibold">{t.orderFee}</th>
+                        <th className="px-3 py-3 font-semibold">{t.orderCoinBought}</th>
+                        <th className="px-3 py-3 font-semibold">{t.orderTotalCoin}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {result.dca.snapshots.map((order) => (
+                        <tr key={order.date} className="border-b border-line last:border-0">
+                          <td className="px-3 py-3 font-semibold text-ink">{order.date}</td>
+                          <td className="px-3 py-3 text-ink">{money(order.price)}</td>
+                          <td className="px-3 py-3 text-ink">{money(order.amount)}</td>
+                          <td className="px-3 py-3 text-ink">{money(order.fee)}</td>
+                          <td className="px-3 py-3 text-ink">
+                            {formatCoinAmount(order.coinBought, selectedCoin.symbol)}
+                          </td>
+                          <td className="px-3 py-3 text-ink">
+                            {formatCoinAmount(order.totalCoin, selectedCoin.symbol)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </section>
 

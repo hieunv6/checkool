@@ -199,6 +199,12 @@ export function simulateDCA(prices, purchaseDates, amountPerPurchase, currentPri
     const sellFee = grossPortfolioValue * feeRate;
     snapshots.push({
       date,
+      price: price.close,
+      amount,
+      fee,
+      netAmount,
+      coinBought: btcBought,
+      totalCoin: totalBTC,
       totalInvested,
       portfolioValue: grossPortfolioValue - sellFee
     });

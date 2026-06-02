@@ -41,6 +41,21 @@ select {
   animation: pulse 1.3s ease-in-out infinite;
 }
 
+.chart-scroll {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+.chart-scroll::-webkit-scrollbar {
+  height: 8px;
+}
+
+.chart-scroll::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+}
+
 @keyframes pulse {
   0% {
     background-position: 100% 50%;

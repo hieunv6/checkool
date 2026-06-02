@@ -790,6 +790,11 @@ export default function App() {
   const chartMargin = isNarrowChart
     ? { top: 8, right: 2, left: -22, bottom: 0 }
     : { top: 12, right: 12, left: 0, bottom: 0 };
+  const chartScrollWidth = useMemo(() => {
+    if (!isNarrowChart) return "100%";
+    const pointWidth = form.frequency === "daily" ? 5 : form.frequency === "monthly" ? 18 : 10;
+    return `${Math.min(4200, Math.max(900, chartData.length * pointWidth))}px`;
+  }, [chartData.length, form.frequency, isNarrowChart]);
   const pnlTone = result?.dca.pnlUSD >= 0 ? "gain" : "loss";
   const shareUrl = buildShareUrl(form, currency, language);
 
@@ -960,47 +965,47 @@ export default function App() {
                     {t.currentBtc} {selectedCoin.symbol}: {money(result.currentPrice)}
                   </p>
                 </div>
-                <div className="min-w-0 overflow-hidden rounded-md">
-                  <div className="h-[280px] min-w-0 sm:h-[320px]">
-                  <ResponsiveContainer width="100%" height="100%" debounce={50}>
-                    <LineChart data={chartData} margin={chartMargin}>
-                      <CartesianGrid stroke="#E4E7EC" strokeDasharray="4 4" />
-                      <XAxis
-                        dataKey="date"
-                        interval="preserveStartEnd"
-                        minTickGap={isNarrowChart ? 44 : 28}
-                        tick={{ fontSize: isNarrowChart ? 10 : 12, fill: "#667085" }}
-                        tickLine={false}
-                        axisLine={{ stroke: "#E4E7EC" }}
-                      />
-                      <YAxis
-                        width={isNarrowChart ? 46 : 72}
-                        tick={{ fontSize: isNarrowChart ? 10 : 12, fill: "#667085" }}
-                        tickLine={false}
-                        axisLine={false}
-                        tickFormatter={(value) =>
-                          chartNumberFormatter.format(currency === "VND" ? value * usdVndRate : value)
-                        }
-                      />
-                      <Tooltip content={<ChartTooltip currency={currency} rate={usdVndRate} />} />
-                      <Line
-                        type="monotone"
-                        dataKey="portfolioValue"
-                        name={t.portfolioLine}
-                        stroke="#0F766E"
-                        strokeWidth={isNarrowChart ? 2 : 3}
-                        dot={false}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="invested"
-                        name={t.investedLine}
-                        stroke="#F59E0B"
-                        strokeWidth={isNarrowChart ? 1.75 : 2}
-                        dot={false}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
+                <div className="chart-scroll min-w-0 overflow-x-auto overflow-y-hidden rounded-md">
+                  <div className="h-[280px] min-w-0 sm:h-[320px]" style={{ width: chartScrollWidth }}>
+                    <ResponsiveContainer width="100%" height="100%" debounce={50}>
+                      <LineChart data={chartData} margin={chartMargin}>
+                        <CartesianGrid stroke="#E4E7EC" strokeDasharray="4 4" />
+                        <XAxis
+                          dataKey="date"
+                          interval="preserveStartEnd"
+                          minTickGap={isNarrowChart ? 44 : 28}
+                          tick={{ fontSize: isNarrowChart ? 10 : 12, fill: "#667085" }}
+                          tickLine={false}
+                          axisLine={{ stroke: "#E4E7EC" }}
+                        />
+                        <YAxis
+                          width={isNarrowChart ? 46 : 72}
+                          tick={{ fontSize: isNarrowChart ? 10 : 12, fill: "#667085" }}
+                          tickLine={false}
+                          axisLine={false}
+                          tickFormatter={(value) =>
+                            chartNumberFormatter.format(currency === "VND" ? value * usdVndRate : value)
+                          }
+                        />
+                        <Tooltip content={<ChartTooltip currency={currency} rate={usdVndRate} />} />
+                        <Line
+                          type="monotone"
+                          dataKey="portfolioValue"
+                          name={t.portfolioLine}
+                          stroke="#0F766E"
+                          strokeWidth={isNarrowChart ? 2 : 3}
+                          dot={false}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="invested"
+                          name={t.investedLine}
+                          stroke="#F59E0B"
+                          strokeWidth={isNarrowChart ? 1.75 : 2}
+                          dot={false}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
                   </div>
                 </div>
               </section>

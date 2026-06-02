@@ -481,6 +481,112 @@ function ChartTooltip({ active, payload, label, currency, rate }) {
   );
 }
 
+function CoinIcon({ coin, size = "md" }) {
+  const [hasError, setHasError] = useState(false);
+  const dimension = size === "sm" ? "h-7 w-7" : "h-9 w-9";
+  const textSize = size === "sm" ? "text-[10px]" : "text-xs";
+
+  if (!coin?.image || hasError) {
+    return (
+      <div className={`${dimension} grid shrink-0 place-items-center rounded-full bg-teal-50 font-semibold text-brand ${textSize}`}>
+        {(coin?.symbol || "?").slice(0, 3)}
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={coin.image}
+      alt=""
+      className={`${dimension} shrink-0 rounded-full bg-white object-cover`}
+      onError={() => setHasError(true)}
+    />
+  );
+}
+
+function CoinCombobox({ coins, selectedCoin, value, onChange, label }) {
+  const [query, setQuery] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredCoins = (normalizedQuery
+    ? coins.filter((coin) =>
+        [coin.name, coin.symbol, String(coin.marketCapRank), coin.id]
+          .filter(Boolean)
+          .some((item) => String(item).toLowerCase().includes(normalizedQuery))
+      )
+    : coins
+  ).slice(0, 50);
+
+  function selectCoin(coin) {
+    onChange(coin.id);
+    setQuery("");
+    setIsOpen(false);
+  }
+
+  return (
+    <div className="relative grid gap-2 text-sm font-medium text-ink">
+      <span>{label}</span>
+      <button
+        type="button"
+        onClick={() => setIsOpen((current) => !current)}
+        className="flex h-12 w-full items-center gap-3 rounded-lg border border-line bg-white px-3 text-left outline-none transition hover:border-brand focus:border-brand focus:ring-2 focus:ring-brand/15"
+      >
+        <CoinIcon coin={selectedCoin} />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate font-semibold text-ink">{selectedCoin.name}</span>
+          <span className="block truncate text-xs font-normal text-muted">
+            {selectedCoin.symbol}
+            {selectedCoin.marketCapRank ? ` · #${selectedCoin.marketCapRank}` : ""}
+          </span>
+        </span>
+        <span className="text-muted">⌄</span>
+      </button>
+
+      {isOpen ? (
+        <div
+          className="absolute left-0 right-0 top-full z-20 mt-2 rounded-lg border border-line bg-white p-2 shadow-xl"
+          onMouseDown={(event) => event.preventDefault()}
+        >
+          <input
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search coin, symbol, rank..."
+            autoFocus
+            onBlur={() => setIsOpen(false)}
+            className="h-10 w-full rounded-lg border border-line px-3 text-sm font-normal text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
+          />
+          <div className="mt-2 max-h-72 overflow-y-auto">
+            {filteredCoins.length > 0 ? (
+              filteredCoins.map((coin) => (
+                <button
+                  key={coin.id}
+                  type="button"
+                  onClick={() => selectCoin(coin)}
+                  className={`flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition hover:bg-[#F5F7F8] ${
+                    value === coin.id ? "bg-teal-50" : ""
+                  }`}
+                >
+                  <CoinIcon coin={coin} size="sm" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-semibold text-ink">{coin.name}</span>
+                    <span className="block truncate text-xs font-normal text-muted">
+                      {coin.symbol} · #{coin.marketCapRank}
+                    </span>
+                  </span>
+                  {value === coin.id ? <span className="text-sm font-semibold text-brand">Selected</span> : null}
+                </button>
+              ))
+            ) : (
+              <div className="px-3 py-6 text-center text-sm font-normal text-muted">No coins found.</div>
+            )}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export default function App() {
   const [form, setForm] = useState(initialState.form);
   const [currency, setCurrency] = useState(initialState.currency);
@@ -654,22 +760,13 @@ export default function App() {
         <section className="h-fit rounded-lg border border-line bg-panel p-5 shadow-sm">
           <h2 className="text-lg font-semibold text-ink">{t.inputTitle}</h2>
           <div className="mt-5 grid gap-4">
-            <Field label={t.coinLabel}>
-              <select
-                value={form.coinId}
-                onChange={(event) => updateForm("coinId", event.target.value)}
-                className="h-11 rounded-lg border border-line bg-white px-3 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
-              >
-                {coins.length === 0 ? (
-                  <option value={form.coinId}>{selectedCoin.name}</option>
-                ) : null}
-                {coins.map((coin) => (
-                  <option key={coin.id} value={coin.id}>
-                    #{coin.marketCapRank} {coin.name} ({coin.symbol})
-                  </option>
-                ))}
-              </select>
-            </Field>
+            <CoinCombobox
+              coins={coins}
+              selectedCoin={selectedCoin}
+              value={form.coinId}
+              onChange={(coinId) => updateForm("coinId", coinId)}
+              label={t.coinLabel}
+            />
             <Field label={t.amountLabel}>
               <input
                 type="number"
@@ -764,11 +861,14 @@ export default function App() {
             <>
               <section className="rounded-lg border border-line bg-panel p-4 shadow-sm">
                 <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-                  <div>
-                    <h2 className="text-lg font-semibold text-ink">{t.chartTitle}</h2>
-                    <p className="text-sm text-muted">
-                      {result.purchaseCount} {t.purchaseCount} {result.effectiveStart} - {form.endDate}
-                    </p>
+                  <div className="flex items-center gap-3">
+                    <CoinIcon coin={selectedCoin} />
+                    <div>
+                      <h2 className="text-lg font-semibold text-ink">{t.chartTitle}</h2>
+                      <p className="text-sm text-muted">
+                        {selectedCoin.name} · {result.purchaseCount} {t.purchaseCount} {result.effectiveStart} - {form.endDate}
+                      </p>
+                    </div>
                   </div>
                   <p className="text-sm text-muted">
                     {t.currentBtc} {selectedCoin.symbol}: {money(result.currentPrice)}

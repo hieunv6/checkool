@@ -814,32 +814,36 @@ function PortfolioAllocationEditor({ coins, portfolio, onChange, t }) {
           const selectedCoin = getCoinMeta(coins, item.coinId);
           return (
             <div key={`${item.coinId}-${index}`} className="rounded-lg border border-line bg-[#F8FAFC] p-3">
-              <div className="grid grid-cols-[minmax(0,1fr)_96px_auto] items-end gap-2">
-                <CoinCombobox
-                  coins={coins}
-                  selectedCoin={selectedCoin}
-                  value={item.coinId}
-                  onChange={(coinId) => updateItem(index, { coinId })}
-                  label={t.coinLabel}
-                />
-                <Field label={`${t.allocationLabel} (%)`}>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.01"
-                    value={item.allocation}
-                    onChange={(event) => updateItem(index, { allocation: event.target.value })}
-                    className="h-12 w-full rounded-lg border border-line bg-white px-3 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
+              <div className="grid grid-cols-[minmax(0,1fr)_2.25rem] items-end gap-2 xl:grid-cols-[minmax(0,1fr)_5.5rem_2.25rem]">
+                <div className="min-w-0 xl:col-auto">
+                  <CoinCombobox
+                    coins={coins}
+                    selectedCoin={selectedCoin}
+                    value={item.coinId}
+                    onChange={(coinId) => updateItem(index, { coinId })}
+                    label={t.coinLabel}
                   />
-                </Field>
+                </div>
+                <div className="col-span-1 min-w-0 xl:col-auto">
+                  <Field label={`${t.allocationLabel} (%)`}>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      value={item.allocation}
+                      onChange={(event) => updateItem(index, { allocation: event.target.value })}
+                      className="h-10 w-full rounded-lg border border-line bg-white px-2 text-sm text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
+                    />
+                  </Field>
+                </div>
                 <button
                   type="button"
                   disabled={portfolio.length <= 1}
                   onClick={() => removeCoin(index)}
                   title={t.removeCoin}
                   aria-label={t.removeCoin}
-                  className="h-12 w-12 rounded-lg border border-line text-lg font-semibold text-muted transition hover:border-red-200 hover:bg-red-50 hover:text-loss disabled:cursor-not-allowed disabled:opacity-40"
+                  className="row-span-2 h-9 w-9 rounded-lg border border-line text-base font-semibold text-muted transition hover:border-red-200 hover:bg-red-50 hover:text-loss disabled:cursor-not-allowed disabled:opacity-40 xl:row-span-1 xl:mb-0.5"
                 >
                   ×
                 </button>

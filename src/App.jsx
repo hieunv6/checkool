@@ -766,6 +766,20 @@ function getCoinMeta(coins, coinId) {
   );
 }
 
+function formatAllocationValue(value) {
+  return Number(value).toFixed(2).replace(/\.?0+$/, "");
+}
+
+function splitAllocationsEvenly(count) {
+  const baseCents = Math.floor(10000 / count);
+  let remainder = 10000 - baseCents * count;
+  return Array.from({ length: count }, () => {
+    const cents = baseCents + (remainder > 0 ? 1 : 0);
+    remainder -= 1;
+    return formatAllocationValue(cents / 100);
+  });
+}
+
 function PortfolioAllocationEditor({ coins, portfolio, onChange, t }) {
   const allocationTotal = portfolio.reduce((sum, item) => sum + Number(item.allocation || 0), 0);
 
@@ -776,7 +790,9 @@ function PortfolioAllocationEditor({ coins, portfolio, onChange, t }) {
   function addCoin() {
     const existing = new Set(portfolio.map((item) => item.coinId));
     const nextCoin = coins.find((coin) => !existing.has(coin.id)) || { id: "ethereum" };
-    onChange([...portfolio, { coinId: nextCoin.id, allocation: "0" }]);
+    const nextPortfolio = [...portfolio, { coinId: nextCoin.id, allocation: "0" }];
+    const evenAllocations = splitAllocationsEvenly(nextPortfolio.length);
+    onChange(nextPortfolio.map((item, index) => ({ ...item, allocation: evenAllocations[index] })));
   }
 
   function removeCoin(index) {
@@ -798,7 +814,7 @@ function PortfolioAllocationEditor({ coins, portfolio, onChange, t }) {
           const selectedCoin = getCoinMeta(coins, item.coinId);
           return (
             <div key={`${item.coinId}-${index}`} className="rounded-lg border border-line bg-[#F8FAFC] p-3">
-              <div className="grid gap-3">
+              <div className="grid grid-cols-[minmax(0,1fr)_96px_auto] items-end gap-2">
                 <CoinCombobox
                   coins={coins}
                   selectedCoin={selectedCoin}
@@ -806,27 +822,27 @@ function PortfolioAllocationEditor({ coins, portfolio, onChange, t }) {
                   onChange={(coinId) => updateItem(index, { coinId })}
                   label={t.coinLabel}
                 />
-                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2">
-                  <Field label={`${t.allocationLabel} (%)`}>
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.01"
-                      value={item.allocation}
-                      onChange={(event) => updateItem(index, { allocation: event.target.value })}
-                      className="h-11 w-full rounded-lg border border-line bg-white px-3 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
-                    />
-                  </Field>
-                  <button
-                    type="button"
-                    disabled={portfolio.length <= 1}
-                    onClick={() => removeCoin(index)}
-                    className="h-11 rounded-lg border border-line px-3 text-sm font-semibold text-muted transition hover:border-red-200 hover:bg-red-50 hover:text-loss disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    {t.removeCoin}
-                  </button>
-                </div>
+                <Field label={`${t.allocationLabel} (%)`}>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    value={item.allocation}
+                    onChange={(event) => updateItem(index, { allocation: event.target.value })}
+                    className="h-12 w-full rounded-lg border border-line bg-white px-3 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
+                  />
+                </Field>
+                <button
+                  type="button"
+                  disabled={portfolio.length <= 1}
+                  onClick={() => removeCoin(index)}
+                  title={t.removeCoin}
+                  aria-label={t.removeCoin}
+                  className="h-12 w-12 rounded-lg border border-line text-lg font-semibold text-muted transition hover:border-red-200 hover:bg-red-50 hover:text-loss disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  ×
+                </button>
               </div>
             </div>
           );

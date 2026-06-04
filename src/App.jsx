@@ -9,6 +9,8 @@ import {
   YAxis
 } from "recharts";
 import {
+  calculateMaxDrawdown,
+  calculateYearExtremes,
   calculateYearlyCagr,
   EARLIEST_MARKET_DATE,
   clampStartDate,
@@ -30,6 +32,53 @@ const FREQUENCIES = [
   "monthly"
 ];
 
+const REBALANCE_FREQUENCIES = [
+  "never",
+  "monthly",
+  "quarterly",
+  "yearly"
+];
+
+const PORTFOLIO_PRESETS = [
+  {
+    id: "btc",
+    label: "BTC 100",
+    portfolio: [{ coinId: "bitcoin", allocation: "100" }]
+  },
+  {
+    id: "btc_eth",
+    label: "BTC 70 / ETH 30",
+    portfolio: [
+      { coinId: "bitcoin", allocation: "70" },
+      { coinId: "ethereum", allocation: "30" }
+    ]
+  },
+  {
+    id: "balanced",
+    label: "BTC 50 / ETH 30 / SOL 20",
+    portfolio: [
+      { coinId: "bitcoin", allocation: "50" },
+      { coinId: "ethereum", allocation: "30" },
+      { coinId: "solana", allocation: "20" }
+    ]
+  }
+];
+
+function buildTopCoinPreset(coins, label, count = 5) {
+  const topCoins = coins.slice(0, count);
+  if (topCoins.length === 0) return null;
+
+  const allocations = splitAllocationsEvenly(topCoins.length);
+  return {
+    id: `top_${topCoins.length}`,
+    label,
+    portfolio: topCoins.map((coin, index) => ({
+      coinId: coin.id,
+      allocation: allocations[index]
+    }))
+  };
+}
+
 const LANGUAGES = [
   { value: "vi", label: "Tiếng Việt" },
   { value: "en", label: "English" },
@@ -49,6 +98,17 @@ const TRANSLATIONS = {
     removeCoin: "Xóa",
     allocationTotal: "Tổng phân bổ",
     holdingsTitle: "Danh mục đang nắm giữ",
+    presetLabel: "Mẫu danh mục",
+    topFivePreset: "Top 5 coin chia đều",
+    rebalanceLabel: "Rebalance",
+    maxDrawdown: "Max drawdown",
+    bestYear: "Năm tốt nhất",
+    worstYear: "Năm tệ nhất",
+    strategyComparisonTitle: "So sánh allocation",
+    currentStrategy: "Danh mục hiện tại",
+    equalWeightStrategy: "Chia đều",
+    primaryOnlyStrategy: "Coin đầu tiên 100%",
+    exportCsv: "Export CSV",
     amountLabel: "Số tiền mỗi lần mua (USD)",
     feeLabel: "Phí mỗi lần mua/bán (%)",
     feeHelp: "Áp dụng cho mỗi lần mua và phí bán ước tính khi tính giá trị hiện tại.",
@@ -91,11 +151,18 @@ const TRANSLATIONS = {
     cagrDate: "Mốc tính",
     cagrValue: "Giá trị danh mục",
     cagrPercent: "CAGR",
+    yoyReturn: "YoY return",
     frequencies: {
       daily: "Hàng ngày",
       weekly: "Hàng tuần",
       biweekly: "Mỗi 2 tuần",
       monthly: "Hàng tháng"
+    },
+    rebalanceFrequencies: {
+      never: "Không rebalance",
+      monthly: "Hàng tháng",
+      quarterly: "Hàng quý",
+      yearly: "Hàng năm"
     },
     errors: {
       amount: "Số tiền mỗi lần mua phải lớn hơn 0.",
@@ -122,6 +189,17 @@ const TRANSLATIONS = {
     removeCoin: "Remove",
     allocationTotal: "Total allocation",
     holdingsTitle: "Portfolio holdings",
+    presetLabel: "Portfolio presets",
+    topFivePreset: "Top 5 equal weight",
+    rebalanceLabel: "Rebalance",
+    maxDrawdown: "Max drawdown",
+    bestYear: "Best year",
+    worstYear: "Worst year",
+    strategyComparisonTitle: "Allocation comparison",
+    currentStrategy: "Current portfolio",
+    equalWeightStrategy: "Equal weight",
+    primaryOnlyStrategy: "First coin 100%",
+    exportCsv: "Export CSV",
     amountLabel: "Amount per purchase (USD)",
     feeLabel: "Fee per buy/sell (%)",
     feeHelp: "Applied to every purchase and the estimated sale fee used for current value.",
@@ -164,11 +242,18 @@ const TRANSLATIONS = {
     cagrDate: "As of",
     cagrValue: "Portfolio value",
     cagrPercent: "CAGR",
+    yoyReturn: "YoY return",
     frequencies: {
       daily: "Daily",
       weekly: "Weekly",
       biweekly: "Every 2 weeks",
       monthly: "Monthly"
+    },
+    rebalanceFrequencies: {
+      never: "No rebalance",
+      monthly: "Monthly",
+      quarterly: "Quarterly",
+      yearly: "Yearly"
     },
     errors: {
       amount: "Amount per purchase must be greater than 0.",
@@ -195,6 +280,17 @@ const TRANSLATIONS = {
     removeCoin: "Eliminar",
     allocationTotal: "Asignación total",
     holdingsTitle: "Posiciones de cartera",
+    presetLabel: "Plantillas",
+    topFivePreset: "Top 5 peso igual",
+    rebalanceLabel: "Rebalanceo",
+    maxDrawdown: "Max drawdown",
+    bestYear: "Mejor año",
+    worstYear: "Peor año",
+    strategyComparisonTitle: "Comparar asignación",
+    currentStrategy: "Cartera actual",
+    equalWeightStrategy: "Peso igual",
+    primaryOnlyStrategy: "Primer coin 100%",
+    exportCsv: "Exportar CSV",
     amountLabel: "Importe por compra (USD)",
     feeLabel: "Comisión por compra/venta (%)",
     feeHelp: "Se aplica a cada compra y a la comisión de venta estimada para el valor actual.",
@@ -237,11 +333,18 @@ const TRANSLATIONS = {
     cagrDate: "Fecha",
     cagrValue: "Valor de cartera",
     cagrPercent: "CAGR",
+    yoyReturn: "Retorno YoY",
     frequencies: {
       daily: "Diaria",
       weekly: "Semanal",
       biweekly: "Cada 2 semanas",
       monthly: "Mensual"
+    },
+    rebalanceFrequencies: {
+      never: "Sin rebalanceo",
+      monthly: "Mensual",
+      quarterly: "Trimestral",
+      yearly: "Anual"
     },
     errors: {
       amount: "El importe por compra debe ser mayor que 0.",
@@ -268,6 +371,17 @@ const TRANSLATIONS = {
     removeCoin: "删除",
     allocationTotal: "总配置",
     holdingsTitle: "组合持仓",
+    presetLabel: "组合模板",
+    topFivePreset: "Top 5 等权重",
+    rebalanceLabel: "再平衡",
+    maxDrawdown: "最大回撤",
+    bestYear: "最佳年份",
+    worstYear: "最差年份",
+    strategyComparisonTitle: "配置对比",
+    currentStrategy: "当前组合",
+    equalWeightStrategy: "等权重",
+    primaryOnlyStrategy: "首个币种 100%",
+    exportCsv: "导出 CSV",
     amountLabel: "每次购买金额 (USD)",
     feeLabel: "每次买/卖手续费 (%)",
     feeHelp: "适用于每次买入，并在计算当前价值时估算卖出手续费。",
@@ -310,11 +424,18 @@ const TRANSLATIONS = {
     cagrDate: "截至日期",
     cagrValue: "组合价值",
     cagrPercent: "CAGR",
+    yoyReturn: "同比回报",
     frequencies: {
       daily: "每日",
       weekly: "每周",
       biweekly: "每两周",
       monthly: "每月"
+    },
+    rebalanceFrequencies: {
+      never: "不再平衡",
+      monthly: "每月",
+      quarterly: "每季度",
+      yearly: "每年"
     },
     errors: {
       amount: "每次购买金额必须大于 0。",
@@ -341,6 +462,17 @@ const TRANSLATIONS = {
     removeCoin: "削除",
     allocationTotal: "合計配分",
     holdingsTitle: "保有ポートフォリオ",
+    presetLabel: "プリセット",
+    topFivePreset: "Top 5 均等配分",
+    rebalanceLabel: "リバランス",
+    maxDrawdown: "最大ドローダウン",
+    bestYear: "ベスト年",
+    worstYear: "ワースト年",
+    strategyComparisonTitle: "配分比較",
+    currentStrategy: "現在の配分",
+    equalWeightStrategy: "均等配分",
+    primaryOnlyStrategy: "先頭コイン 100%",
+    exportCsv: "CSV 出力",
     amountLabel: "1回あたりの購入額 (USD)",
     feeLabel: "売買ごとの手数料 (%)",
     feeHelp: "各購入と、現在価値を計算する際の推定売却手数料に適用されます。",
@@ -383,11 +515,18 @@ const TRANSLATIONS = {
     cagrDate: "基準日",
     cagrValue: "ポートフォリオ価値",
     cagrPercent: "CAGR",
+    yoyReturn: "前年比リターン",
     frequencies: {
       daily: "毎日",
       weekly: "毎週",
       biweekly: "隔週",
       monthly: "毎月"
+    },
+    rebalanceFrequencies: {
+      never: "リバランスなし",
+      monthly: "毎月",
+      quarterly: "四半期",
+      yearly: "毎年"
     },
     errors: {
       amount: "1回あたりの購入額は 0 より大きくしてください。",
@@ -414,6 +553,17 @@ const TRANSLATIONS = {
     removeCoin: "삭제",
     allocationTotal: "총 배분",
     holdingsTitle: "포트폴리오 보유",
+    presetLabel: "프리셋",
+    topFivePreset: "Top 5 동일 비중",
+    rebalanceLabel: "리밸런싱",
+    maxDrawdown: "최대 낙폭",
+    bestYear: "최고 연도",
+    worstYear: "최악 연도",
+    strategyComparisonTitle: "배분 비교",
+    currentStrategy: "현재 포트폴리오",
+    equalWeightStrategy: "동일 비중",
+    primaryOnlyStrategy: "첫 코인 100%",
+    exportCsv: "CSV 내보내기",
     amountLabel: "회당 매수 금액 (USD)",
     feeLabel: "매수/매도당 수수료 (%)",
     feeHelp: "각 매수와 현재 가치 계산 시 추정 매도 수수료에 적용됩니다.",
@@ -456,11 +606,18 @@ const TRANSLATIONS = {
     cagrDate: "기준일",
     cagrValue: "포트폴리오 가치",
     cagrPercent: "CAGR",
+    yoyReturn: "YoY 수익률",
     frequencies: {
       daily: "매일",
       weekly: "매주",
       biweekly: "2주마다",
       monthly: "매월"
+    },
+    rebalanceFrequencies: {
+      never: "리밸런싱 없음",
+      monthly: "매월",
+      quarterly: "분기별",
+      yearly: "매년"
     },
     errors: {
       amount: "회당 매수 금액은 0보다 커야 합니다.",
@@ -485,6 +642,7 @@ const DEFAULT_FORM = {
   amount: "100",
   fee: "0.1",
   frequency: "weekly",
+  rebalanceFrequency: "never",
   startDate: "2021-01-01",
   endDate: todayKey()
 };
@@ -525,6 +683,9 @@ function readInitialState() {
       amount: params.get("amount") || DEFAULT_FORM.amount,
       fee: params.get("fee") || DEFAULT_FORM.fee,
       frequency: params.get("freq") || DEFAULT_FORM.frequency,
+      rebalanceFrequency: REBALANCE_FREQUENCIES.includes(params.get("rebalance"))
+        ? params.get("rebalance")
+        : DEFAULT_FORM.rebalanceFrequency,
       startDate: params.get("start") || DEFAULT_FORM.startDate,
       endDate: params.get("end") || DEFAULT_FORM.endDate
     },
@@ -542,6 +703,7 @@ function buildShareUrl(form, currency, language) {
     portfolio: serializePortfolio(form.portfolio),
     fee: form.fee,
     freq: form.frequency,
+    rebalance: form.rebalanceFrequency,
     start: form.startDate,
     end: form.endDate,
     cur: currency,
@@ -780,7 +942,7 @@ function splitAllocationsEvenly(count) {
   });
 }
 
-function PortfolioAllocationEditor({ coins, portfolio, onChange, t }) {
+function PortfolioAllocationEditor({ coins, portfolio, onChange, presets, onApplyPreset, t }) {
   const allocationTotal = portfolio.reduce((sum, item) => sum + Number(item.allocation || 0), 0);
 
   function updateItem(index, patch) {
@@ -809,12 +971,29 @@ function PortfolioAllocationEditor({ coins, portfolio, onChange, t }) {
         </span>
       </div>
 
+      <div className="grid gap-2">
+        <span className="text-xs font-semibold text-muted">{t.presetLabel}</span>
+        <div className="grid grid-cols-1 gap-2">
+          {presets.map((preset) => (
+            <button
+              key={preset.id}
+              type="button"
+              onClick={() => onApplyPreset(preset.portfolio)}
+              className="min-h-9 rounded-lg border border-line bg-white px-3 py-2 text-left text-xs font-semibold text-ink transition hover:border-brand hover:bg-teal-50"
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="grid gap-3">
         {portfolio.map((item, index) => {
           const selectedCoin = getCoinMeta(coins, item.coinId);
           return (
             <div key={`${item.coinId}-${index}`} className="rounded-lg border border-line bg-[#F8FAFC] p-3">
-              <div className="grid grid-cols-[minmax(0,1fr)_7rem_3rem] items-end gap-2">
+              <div className="grid gap-2">
+                {/* Coin selector — full width on all screen sizes */}
                 <div className="min-w-0">
                   <CoinCombobox
                     coins={coins}
@@ -824,8 +1003,9 @@ function PortfolioAllocationEditor({ coins, portfolio, onChange, t }) {
                     label={t.coinLabel}
                   />
                 </div>
-                <div className="min-w-0">
-                  <label className="grid gap-2 text-sm font-medium text-ink">
+                {/* Allocation input + remove button side by side */}
+                <div className="flex items-end gap-2">
+                  <label className="grid flex-1 gap-2 text-sm font-medium text-ink">
                     <span className="whitespace-nowrap">{t.allocationLabel} (%)</span>
                     <input
                       type="number"
@@ -837,17 +1017,17 @@ function PortfolioAllocationEditor({ coins, portfolio, onChange, t }) {
                       className="h-12 w-full rounded-lg border border-line bg-white px-3 text-sm text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
                     />
                   </label>
+                  <button
+                    type="button"
+                    disabled={portfolio.length <= 1}
+                    onClick={() => removeCoin(index)}
+                    title={t.removeCoin}
+                    aria-label={t.removeCoin}
+                    className="h-12 w-12 shrink-0 rounded-lg border border-line text-lg font-semibold text-muted transition hover:border-red-200 hover:bg-red-50 hover:text-loss disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    ×
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  disabled={portfolio.length <= 1}
-                  onClick={() => removeCoin(index)}
-                  title={t.removeCoin}
-                  aria-label={t.removeCoin}
-                  className="h-12 w-12 rounded-lg border border-line text-lg font-semibold text-muted transition hover:border-red-200 hover:bg-red-50 hover:text-loss disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  ×
-                </button>
               </div>
             </div>
           );
@@ -919,6 +1099,60 @@ function SimpleDropdown({ label, value, options, onChange, className = "" }) {
   );
 }
 
+function buildStrategyComparisons(assetData, purchaseDates, amount, feePercent, rebalanceFrequency) {
+  if (assetData.length === 0) return [];
+
+  const equalAllocations = splitAllocationsEvenly(assetData.length).map(Number);
+  const strategies = [
+    {
+      id: "current",
+      allocations: assetData.map((asset) => asset.allocationPercent)
+    },
+    {
+      id: "equal",
+      allocations: equalAllocations
+    },
+    {
+      id: "primary",
+      allocations: assetData.map((_, index) => (index === 0 ? 100 : 0))
+    }
+  ];
+
+  return strategies.map((strategy) => {
+    const strategyAssets = assetData.map((asset, index) => ({
+      ...asset,
+      allocationPercent: strategy.allocations[index]
+    }));
+    const dca = simulatePortfolioDCA(strategyAssets, purchaseDates, amount, feePercent, { rebalanceFrequency });
+    return {
+      id: strategy.id,
+      allocationText: strategyAssets
+        .filter((asset) => asset.allocationPercent > 0)
+        .map((asset) => `${asset.symbol} ${formatAllocationValue(asset.allocationPercent)}%`)
+        .join(" / "),
+      dca
+    };
+  });
+}
+
+function csvCell(value) {
+  const text = value === null || value === undefined ? "" : String(value);
+  return /[",\n]/.test(text) ? `"${text.replaceAll("\"", "\"\"")}"` : text;
+}
+
+function downloadCsv(filename, rows) {
+  const csv = rows.map((row) => row.map(csvCell).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 export default function App() {
   const [form, setForm] = useState(initialState.form);
   const [currency, setCurrency] = useState(initialState.currency);
@@ -946,6 +1180,15 @@ export default function App() {
     value: frequency,
     label: t.frequencies[frequency],
     icon: { daily: "1D", weekly: "7D", biweekly: "14D", monthly: "1M" }[frequency]
+  }));
+  const portfolioPresets = useMemo(() => {
+    const topFivePreset = buildTopCoinPreset(coins, t.topFivePreset, 5);
+    return topFivePreset ? [...PORTFOLIO_PRESETS, topFivePreset] : PORTFOLIO_PRESETS;
+  }, [coins, t.topFivePreset]);
+  const rebalanceOptions = REBALANCE_FREQUENCIES.map((frequency) => ({
+    value: frequency,
+    label: t.rebalanceFrequencies[frequency],
+    icon: { never: "NO", monthly: "1M", quarterly: "3M", yearly: "1Y" }[frequency]
   }));
 
   const formError = validateForm(form, t);
@@ -991,8 +1234,17 @@ export default function App() {
       ]);
 
       const feePercent = Number(form.fee);
-      const dca = simulatePortfolioDCA(assetData, purchaseDates, Number(form.amount), feePercent);
+      const dca = simulatePortfolioDCA(assetData, purchaseDates, Number(form.amount), feePercent, {
+        rebalanceFrequency: form.rebalanceFrequency
+      });
       const lumpSum = simulatePortfolioLumpSum(assetData, dca.totalInvested, clampedStart, feePercent);
+      const strategyComparisons = buildStrategyComparisons(
+        assetData,
+        purchaseDates,
+        Number(form.amount),
+        feePercent,
+        form.rebalanceFrequency
+      );
 
       setUsdVndRate(rate);
       setWarning(localWarning);
@@ -1003,6 +1255,7 @@ export default function App() {
       setResult({
         dca,
         lumpSum,
+        strategyComparisons,
         assets: assetData.map(({ prices, ...asset }) => asset),
         purchaseCount: purchaseDates.length,
         effectiveStart: clampedStart
@@ -1059,6 +1312,11 @@ export default function App() {
     if (!result) return [];
     return calculateYearlyCagr(result.dca.snapshots);
   }, [result]);
+  const maxDrawdown = useMemo(() => {
+    if (!result) return null;
+    return calculateMaxDrawdown(result.dca.snapshots);
+  }, [result]);
+  const yearExtremes = useMemo(() => calculateYearExtremes(yearlyCagr), [yearlyCagr]);
 
   const money = useCallback((value) => formatMoney(value, currency, usdVndRate), [currency, usdVndRate]);
   const chartNumberFormatter = useMemo(
@@ -1092,6 +1350,10 @@ export default function App() {
 
   function updateForm(field, value) {
     setForm((current) => ({ ...current, [field]: value }));
+    setResult(null);
+    setWarning("");
+    setError("");
+    setCopied(false);
   }
 
   function updatePortfolio(portfolio) {
@@ -1102,8 +1364,62 @@ export default function App() {
     setCopied(false);
   }
 
+  function exportResultsCsv() {
+    if (!result) return;
+
+    const rows = [
+      ["Summary"],
+      ["Metric", "Value"],
+      ["Total invested", result.dca.totalInvested],
+      ["Current value", result.dca.currentValue],
+      ["Profit/Loss", result.dca.pnlUSD],
+      ["Profit/Loss %", result.dca.pnlPercent],
+      ["Max drawdown %", maxDrawdown?.percent],
+      ["Max drawdown value", maxDrawdown?.value],
+      [],
+      ["Holdings"],
+      ["Coin", "Symbol", "Invested", "Coin amount", "Average cost", "Fees", "Current value", "PnL", "PnL %"],
+      ...result.dca.assets.map((asset) => [
+        asset.name,
+        asset.symbol,
+        asset.totalInvested,
+        asset.totalCoin,
+        asset.avgCost,
+        asset.totalFees,
+        asset.currentValue,
+        asset.pnlUSD,
+        asset.pnlPercent
+      ]),
+      [],
+      ["Yearly CAGR and YoY"],
+      ["Year", "Date", "Total invested", "Portfolio value", "CAGR %", "YoY return %"],
+      ...yearlyCagr.map((row) => [
+        row.year,
+        row.date,
+        row.totalInvested,
+        row.portfolioValue,
+        row.cagrPercent,
+        row.yoyReturnPercent
+      ]),
+      [],
+      ["Orders"],
+      ["Date", "Coin", "Price", "Amount", "Fee", "Coin bought", "Total coin"],
+      ...result.dca.orders.map((order) => [
+        order.date,
+        order.symbol,
+        order.price,
+        order.amount,
+        order.fee,
+        order.coinBought,
+        order.totalCoin
+      ])
+    ];
+
+    downloadCsv(`checkool-${form.startDate}-${form.endDate}.csv`, rows);
+  }
+
   return (
-    <main className="min-h-screen bg-[#F5F7F8]">
+    <main className="min-h-screen bg-[#F5F7F8] pb-20 lg:pb-0">
       <header className="border-b border-line bg-white">
         <div className="mx-auto flex max-w-6xl flex-col gap-4 px-3 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-5">
           <div className="min-w-0">
@@ -1137,13 +1453,15 @@ export default function App() {
       </header>
 
       <div className="mx-auto grid max-w-6xl gap-4 px-3 py-4 sm:gap-6 sm:px-6 sm:py-6 lg:grid-cols-[360px_minmax(0,1fr)]">
-        <section className="h-fit rounded-lg border border-line bg-panel p-4 shadow-sm sm:p-5">
+        <section className="h-fit rounded-lg border border-line bg-panel p-4 shadow-sm sm:p-5 lg:sticky lg:top-4">
           <h2 className="text-lg font-semibold text-ink">{t.inputTitle}</h2>
           <div className="mt-5 grid gap-4">
             <PortfolioAllocationEditor
               coins={coins}
               portfolio={form.portfolio}
               onChange={updatePortfolio}
+              presets={portfolioPresets}
+              onApplyPreset={updatePortfolio}
               t={t}
             />
             <Field label={t.amountLabel}>
@@ -1174,30 +1492,39 @@ export default function App() {
               options={frequencyOptions}
               onChange={(frequency) => updateForm("frequency", frequency)}
             />
-            <Field label={t.startDate}>
-              <input
-                type="date"
-                value={form.startDate}
-                max={todayKey()}
-                onChange={(event) => updateForm("startDate", event.target.value)}
-                className="h-11 w-full rounded-lg border border-line bg-white px-3 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
-              />
-            </Field>
-            <Field label={t.endDate}>
-              <input
-                type="date"
-                value={form.endDate}
-                max={todayKey()}
-                onChange={(event) => updateForm("endDate", event.target.value)}
-                className="h-11 w-full rounded-lg border border-line bg-white px-3 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
-              />
-            </Field>
+            <SimpleDropdown
+              label={t.rebalanceLabel}
+              value={form.rebalanceFrequency}
+              options={rebalanceOptions}
+              onChange={(frequency) => updateForm("rebalanceFrequency", frequency)}
+            />
+            <div className="grid grid-cols-2 gap-3">
+              <Field label={t.startDate}>
+                <input
+                  type="date"
+                  value={form.startDate}
+                  max={todayKey()}
+                  onChange={(event) => updateForm("startDate", event.target.value)}
+                  className="h-11 w-full rounded-lg border border-line bg-white px-3 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
+                />
+              </Field>
+              <Field label={t.endDate}>
+                <input
+                  type="date"
+                  value={form.endDate}
+                  max={todayKey()}
+                  onChange={(event) => updateForm("endDate", event.target.value)}
+                  className="h-11 w-full rounded-lg border border-line bg-white px-3 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
+                />
+              </Field>
+            </div>
             {formError ? <p className="rounded-lg bg-red-50 p-3 text-sm text-loss">{formError}</p> : null}
+            {/* Nút này chỉ hiện trên desktop — mobile dùng sticky bar bên dưới */}
             <button
               type="button"
               disabled={isInvalid || isLoading}
               onClick={runCalculation}
-              className="h-11 w-full rounded-lg bg-brand px-4 text-sm font-semibold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+              className="hidden h-11 w-full rounded-lg bg-brand px-4 text-sm font-semibold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-300 lg:block"
             >
               {isLoading ? t.loading : t.submit}
             </button>
@@ -1219,6 +1546,21 @@ export default function App() {
                 <StatCard label={t.currentValue} value={money(result.dca.currentValue)} />
                 <StatCard label={t.pnl} value={money(result.dca.pnlUSD)} tone={pnlTone} />
                 <StatCard label={t.pnlPercent} value={formatPercent(result.dca.pnlPercent)} tone={pnlTone} />
+                <StatCard
+                  label={t.maxDrawdown}
+                  value={maxDrawdown ? formatPercent(-maxDrawdown.percent) : "-"}
+                  tone={maxDrawdown?.percent > 0 ? "loss" : "default"}
+                />
+                <StatCard
+                  label={t.bestYear}
+                  value={yearExtremes.best ? `${yearExtremes.best.year} ${formatPercent(yearExtremes.best.yoyReturnPercent)}` : "-"}
+                  tone="gain"
+                />
+                <StatCard
+                  label={t.worstYear}
+                  value={yearExtremes.worst ? `${yearExtremes.worst.year} ${formatPercent(yearExtremes.worst.yoyReturnPercent)}` : "-"}
+                  tone={yearExtremes.worst?.yoyReturnPercent < 0 ? "loss" : "default"}
+                />
               </div>
             ) : (
               <div className="rounded-lg border border-dashed border-line bg-white p-8 text-center text-sm text-muted">
@@ -1235,15 +1577,18 @@ export default function App() {
                     <CoinIcon coin={primaryCoin} />
                     <div className="min-w-0">
                       <h2 className="text-lg font-semibold text-ink">{t.chartTitle}</h2>
-                      <p className="break-words text-sm text-muted">
-                        {portfolioCoins.map((item) => `${item.coin.symbol} ${item.allocation}%`).join(" · ")} · {result.purchaseCount} {t.purchaseCount} {result.effectiveStart} - {form.endDate}
+                      <p className="truncate text-sm text-muted">
+                        {portfolioCoins.map((item) => `${item.coin.symbol} ${item.allocation}%`).join(" · ")}
+                      </p>
+                      <p className="text-xs text-muted">
+                        {result.purchaseCount} {t.purchaseCount} {result.effectiveStart} → {form.endDate}
                       </p>
                     </div>
                   </div>
-                  <div className="text-sm text-muted md:text-right">
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted md:flex-col md:items-end md:gap-y-0.5">
                     {result.assets.map((asset) => (
                       <p key={asset.coinId}>
-                        {t.currentBtc} {asset.symbol}: {money(asset.currentPrice)}
+                        {asset.symbol}: {money(asset.currentPrice)}
                       </p>
                     ))}
                   </div>
@@ -1296,14 +1641,14 @@ export default function App() {
               <section className="rounded-lg border border-line bg-panel p-3 shadow-sm sm:p-4">
                 <h2 className="text-lg font-semibold text-ink">{t.holdingsTitle}</h2>
                 <div className="mt-4 overflow-x-auto rounded-lg border border-line">
-                  <table className="w-full min-w-[760px] border-collapse bg-white text-left text-xs sm:text-sm">
+                  <table className="w-full border-collapse bg-white text-left text-xs sm:text-sm">
                     <thead className="bg-[#F8FAFC] text-muted">
                       <tr className="border-b border-line">
                         <th className="px-3 py-3 font-semibold">{t.coinLabel}</th>
                         <th className="px-3 py-3 font-semibold">{t.totalInvested}</th>
                         <th className="px-3 py-3 font-semibold">{t.totalBtc}</th>
-                        <th className="px-3 py-3 font-semibold">{t.avgCost}</th>
-                        <th className="px-3 py-3 font-semibold">{t.totalFees}</th>
+                        <th className="hidden px-3 py-3 font-semibold sm:table-cell">{t.avgCost}</th>
+                        <th className="hidden px-3 py-3 font-semibold sm:table-cell">{t.totalFees}</th>
                         <th className="px-3 py-3 font-semibold">{t.currentValue}</th>
                         <th className="px-3 py-3 font-semibold">{t.pnl}</th>
                       </tr>
@@ -1314,8 +1659,8 @@ export default function App() {
                           <td className="px-3 py-3 font-semibold text-ink">{asset.name}</td>
                           <td className="px-3 py-3 text-ink">{money(asset.totalInvested)}</td>
                           <td className="px-3 py-3 text-ink">{formatCoinAmount(asset.totalCoin, asset.symbol)}</td>
-                          <td className="px-3 py-3 text-ink">{money(asset.avgCost)}</td>
-                          <td className="px-3 py-3 text-ink">{money(asset.totalFees)}</td>
+                          <td className="hidden px-3 py-3 text-ink sm:table-cell">{money(asset.avgCost)}</td>
+                          <td className="hidden px-3 py-3 text-ink sm:table-cell">{money(asset.totalFees)}</td>
                           <td className="px-3 py-3 text-ink">{money(asset.currentValue)}</td>
                           <td className={`px-3 py-3 font-semibold ${asset.pnlUSD >= 0 ? "text-gain" : "text-loss"}`}>
                             {money(asset.pnlUSD)}
@@ -1335,16 +1680,16 @@ export default function App() {
                   </p>
                 </div>
                 <div className="max-h-[420px] overflow-auto rounded-lg border border-line">
-                  <table className="w-full min-w-[860px] border-collapse bg-white text-left text-xs sm:text-sm">
+                  <table className="w-full border-collapse bg-white text-left text-xs sm:text-sm">
                     <thead className="sticky top-0 z-10 bg-[#F8FAFC] text-muted">
                       <tr className="border-b border-line">
                         <th className="px-3 py-3 font-semibold">{t.orderDate}</th>
                         <th className="px-3 py-3 font-semibold">{t.coinLabel}</th>
                         <th className="px-3 py-3 font-semibold">{t.orderPrice}</th>
                         <th className="px-3 py-3 font-semibold">{t.orderAmount}</th>
-                        <th className="px-3 py-3 font-semibold">{t.orderFee}</th>
+                        <th className="hidden px-3 py-3 font-semibold sm:table-cell">{t.orderFee}</th>
                         <th className="px-3 py-3 font-semibold">{t.orderCoinBought}</th>
-                        <th className="px-3 py-3 font-semibold">{t.orderTotalCoin}</th>
+                        <th className="hidden px-3 py-3 font-semibold sm:table-cell">{t.orderTotalCoin}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1354,11 +1699,11 @@ export default function App() {
                           <td className="px-3 py-3 font-semibold text-ink">{order.symbol}</td>
                           <td className="px-3 py-3 text-ink">{money(order.price)}</td>
                           <td className="px-3 py-3 text-ink">{money(order.amount)}</td>
-                          <td className="px-3 py-3 text-ink">{money(order.fee)}</td>
+                          <td className="hidden px-3 py-3 text-ink sm:table-cell">{money(order.fee)}</td>
                           <td className="px-3 py-3 text-ink">
                             {formatCoinAmount(order.coinBought, order.symbol)}
                           </td>
-                          <td className="px-3 py-3 text-ink">
+                          <td className="hidden px-3 py-3 text-ink sm:table-cell">
                             {formatCoinAmount(order.totalCoin, order.symbol)}
                           </td>
                         </tr>
@@ -1371,25 +1716,37 @@ export default function App() {
               <section className="rounded-lg border border-line bg-panel p-3 shadow-sm sm:p-4">
                 <h2 className="text-lg font-semibold text-ink">{t.yearlyCagrTitle}</h2>
                 <div className="mt-4 overflow-x-auto rounded-lg border border-line">
-                  <table className="w-full min-w-[560px] border-collapse bg-white text-left text-xs sm:text-sm">
+                  <table className="w-full border-collapse bg-white text-left text-xs sm:text-sm">
                     <thead className="bg-[#F8FAFC] text-muted">
                       <tr className="border-b border-line">
                         <th className="px-3 py-3 font-semibold">{t.cagrYear}</th>
-                        <th className="px-3 py-3 font-semibold">{t.cagrDate}</th>
+                        <th className="hidden px-3 py-3 font-semibold sm:table-cell">{t.cagrDate}</th>
                         <th className="px-3 py-3 font-semibold">{t.totalInvested}</th>
                         <th className="px-3 py-3 font-semibold">{t.cagrValue}</th>
                         <th className="px-3 py-3 font-semibold">{t.cagrPercent}</th>
+                        <th className="px-3 py-3 font-semibold">{t.yoyReturn}</th>
                       </tr>
                     </thead>
                     <tbody>
                       {yearlyCagr.map((row) => (
                         <tr key={row.year} className="border-b border-line last:border-0">
                           <td className="px-3 py-3 font-semibold text-ink">{row.year}</td>
-                          <td className="px-3 py-3 text-ink">{row.date}</td>
+                          <td className="hidden px-3 py-3 text-ink sm:table-cell">{row.date}</td>
                           <td className="px-3 py-3 text-ink">{money(row.totalInvested)}</td>
                           <td className="px-3 py-3 text-ink">{money(row.portfolioValue)}</td>
                           <td className={`px-3 py-3 font-semibold ${row.cagrPercent >= 0 ? "text-gain" : "text-loss"}`}>
                             {formatPercent(row.cagrPercent)}
+                          </td>
+                          <td
+                            className={`px-3 py-3 font-semibold ${
+                              row.yoyReturnPercent === null
+                                ? "text-muted"
+                                : row.yoyReturnPercent >= 0
+                                  ? "text-gain"
+                                  : "text-loss"
+                            }`}
+                          >
+                            {row.yoyReturnPercent === null ? "-" : formatPercent(row.yoyReturnPercent)}
                           </td>
                         </tr>
                       ))}
@@ -1399,13 +1756,58 @@ export default function App() {
               </section>
 
               <section className="rounded-lg border border-line bg-panel p-3 shadow-sm sm:p-4">
+                <h2 className="text-lg font-semibold text-ink">{t.strategyComparisonTitle}</h2>
+                <div className="mt-4 overflow-x-auto rounded-lg border border-line">
+                  <table className="w-full border-collapse bg-white text-left text-xs sm:text-sm">
+                    <thead className="bg-[#F8FAFC] text-muted">
+                      <tr className="border-b border-line">
+                        <th className="px-3 py-3 font-semibold">{t.tableStrategy}</th>
+                        <th className="hidden px-3 py-3 font-semibold sm:table-cell">{t.allocationLabel}</th>
+                        <th className="px-3 py-3 font-semibold">{t.tableValue}</th>
+                        <th className="px-3 py-3 font-semibold">{t.pnl}</th>
+                        <th className="px-3 py-3 font-semibold">{t.pnlPercent}</th>
+                        <th className="hidden px-3 py-3 font-semibold sm:table-cell">{t.maxDrawdown}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {result.strategyComparisons.map((strategy) => {
+                        const strategyDrawdown = calculateMaxDrawdown(strategy.dca.snapshots);
+                        const strategyName =
+                          strategy.id === "current"
+                            ? t.currentStrategy
+                            : strategy.id === "equal"
+                              ? t.equalWeightStrategy
+                              : t.primaryOnlyStrategy;
+                        return (
+                          <tr key={strategy.id} className="border-b border-line last:border-0">
+                            <td className="px-3 py-3 font-semibold text-ink">{strategyName}</td>
+                            <td className="hidden px-3 py-3 text-ink sm:table-cell">{strategy.allocationText}</td>
+                            <td className="px-3 py-3 text-ink">{money(strategy.dca.currentValue)}</td>
+                            <td className={`px-3 py-3 font-semibold ${strategy.dca.pnlUSD >= 0 ? "text-gain" : "text-loss"}`}>
+                              {money(strategy.dca.pnlUSD)}
+                            </td>
+                            <td className={`px-3 py-3 font-semibold ${strategy.dca.pnlPercent >= 0 ? "text-gain" : "text-loss"}`}>
+                              {formatPercent(strategy.dca.pnlPercent)}
+                            </td>
+                            <td className="hidden px-3 py-3 font-semibold text-loss sm:table-cell">
+                              {formatPercent(-strategyDrawdown.percent)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
+              <section className="rounded-lg border border-line bg-panel p-3 shadow-sm sm:p-4">
                 <h2 className="text-lg font-semibold text-ink">{t.comparisonTitle}</h2>
                 <div className="mt-4 overflow-x-auto">
-                  <table className="w-full min-w-[640px] border-collapse text-left text-xs sm:text-sm">
+                  <table className="w-full border-collapse text-left text-xs sm:text-sm">
                     <thead>
                       <tr className="border-b border-line text-muted">
                         <th className="py-3 pr-4 font-semibold">{t.tableStrategy}</th>
-                        <th className="py-3 pr-4 font-semibold">{t.totalFees}</th>
+                        <th className="hidden py-3 pr-4 font-semibold sm:table-cell">{t.totalFees}</th>
                         <th className="py-3 pr-4 font-semibold">{t.tableValue}</th>
                         <th className="py-3 pr-4 font-semibold">{t.pnl}</th>
                         <th className="py-3 font-semibold">{t.pnlPercent}</th>
@@ -1430,7 +1832,7 @@ export default function App() {
                       ].map(([name, fees, value, pnl, percent]) => (
                         <tr key={name} className="border-b border-line last:border-0">
                           <td className="py-3 pr-4 font-semibold text-ink">{name}</td>
-                          <td className="py-3 pr-4 text-ink">{money(fees)}</td>
+                          <td className="hidden py-3 pr-4 text-ink sm:table-cell">{money(fees)}</td>
                           <td className="py-3 pr-4 text-ink">{money(value)}</td>
                           <td className={`py-3 pr-4 font-semibold ${pnl >= 0 ? "text-gain" : "text-loss"}`}>
                             {money(pnl)}
@@ -1446,18 +1848,45 @@ export default function App() {
               </section>
 
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <button
-                  type="button"
-                  onClick={copyShareLink}
-                  className="h-11 w-full rounded-lg border border-brand px-4 text-sm font-semibold text-brand transition hover:bg-teal-50 sm:w-auto"
-                >
-                  {copied ? t.copiedLink : t.copyLink}
-                </button>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={copyShareLink}
+                    className="h-11 w-full rounded-lg border border-brand px-4 text-sm font-semibold text-brand transition hover:bg-teal-50 sm:w-auto"
+                  >
+                    {copied ? t.copiedLink : t.copyLink}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={exportResultsCsv}
+                    className="h-11 w-full rounded-lg border border-line px-4 text-sm font-semibold text-ink transition hover:border-brand hover:bg-teal-50 sm:w-auto"
+                  >
+                    {t.exportCsv}
+                  </button>
+                </div>
                 <p className="text-sm text-muted">{t.disclaimer}</p>
               </div>
             </>
           ) : null}
         </section>
+      </div>
+
+      {/* Sticky bottom bar — chỉ hiện trên mobile/tablet */}
+      <div
+        className="fixed bottom-0 left-0 right-0 z-50 border-t border-line bg-white px-4 py-3 lg:hidden"
+        style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+      >
+        {formError ? (
+          <p className="mb-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-loss">{formError}</p>
+        ) : null}
+        <button
+          type="button"
+          disabled={isInvalid || isLoading}
+          onClick={runCalculation}
+          className="h-11 w-full rounded-lg bg-brand px-4 text-sm font-semibold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+        >
+          {isLoading ? t.loading : t.submit}
+        </button>
       </div>
     </main>
   );

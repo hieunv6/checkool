@@ -75,6 +75,23 @@ export function generatePurchaseDates(startDate, endDate, frequency) {
   return dates;
 }
 
+function shouldRebalance(date, frequency, lastRebalanceDate) {
+  if (!frequency || frequency === "never" || date === lastRebalanceDate) return false;
+  if (!lastRebalanceDate) return true;
+
+  const current = parseDateKey(date);
+  const previous = parseDateKey(lastRebalanceDate);
+  const monthDelta =
+    (current.getUTCFullYear() - previous.getUTCFullYear()) * 12 +
+    current.getUTCMonth() -
+    previous.getUTCMonth();
+
+  if (frequency === "monthly") return monthDelta >= 1;
+  if (frequency === "quarterly") return monthDelta >= 3;
+  if (frequency === "yearly") return current.getUTCFullYear() > previous.getUTCFullYear();
+  return false;
+}
+
 async function fetchWithRetry(url, retries = 3) {
   let lastError;
   for (let attempt = 0; attempt < retries; attempt += 1) {
@@ -265,7 +282,7 @@ export function simulateLumpSum(prices, totalInvested, startDate, currentPrice, 
   };
 }
 
-export function simulatePortfolioDCA(assets, purchaseDates, amountPerPurchase, feePercent = 0) {
+export function simulatePortfolioDCA(assets, purchaseDates, amountPerPurchase, feePercent = 0, options = {}) {
   const amount = Number(amountPerPurchase);
   const feeRate = Number(feePercent) / 100;
   if (!Number.isFinite(amount) || amount <= 0) {
@@ -304,15 +321,20 @@ export function simulatePortfolioDCA(assets, purchaseDates, amountPerPurchase, f
   );
   let totalInvested = 0;
   let buyFees = 0;
+  let rebalanceFees = 0;
   const snapshots = [];
   const orders = [];
+  const rebalances = [];
+  let lastRebalanceDate = null;
 
   for (const date of purchaseDates) {
     const dayOrders = [];
+    const pricesByCoin = new Map();
 
     for (const asset of normalizedAssets) {
       const price = getPriceOnOrBefore(asset.prices, date);
       if (!price) continue;
+      pricesByCoin.set(asset.coinId, price.close);
 
       const allocatedAmount = amount * (asset.allocationPercent / 100);
       const fee = allocatedAmount * feeRate;
@@ -344,10 +366,40 @@ export function simulatePortfolioDCA(assets, purchaseDates, amountPerPurchase, f
 
     if (dayOrders.length === 0) continue;
 
-    const grossPortfolioValue = normalizedAssets.reduce((sum, asset) => {
-      const price = getPriceOnOrBefore(asset.prices, date);
-      return sum + (holdings.get(asset.coinId) || 0) * (price?.close || 0);
+    let grossPortfolioValue = normalizedAssets.reduce((sum, asset) => {
+      const price = pricesByCoin.get(asset.coinId) || getPriceOnOrBefore(asset.prices, date)?.close || 0;
+      return sum + (holdings.get(asset.coinId) || 0) * price;
     }, 0);
+
+    let rebalanceFee = 0;
+    if (shouldRebalance(date, options.rebalanceFrequency, lastRebalanceDate) && grossPortfolioValue > 0) {
+      const turnover = normalizedAssets.reduce((sum, asset) => {
+        const price = pricesByCoin.get(asset.coinId) || getPriceOnOrBefore(asset.prices, date)?.close || 0;
+        const currentValue = (holdings.get(asset.coinId) || 0) * price;
+        const targetValue = grossPortfolioValue * (asset.allocationPercent / 100);
+        return sum + Math.abs(targetValue - currentValue);
+      }, 0);
+
+      rebalanceFee = turnover * feeRate;
+      const netPortfolioValue = grossPortfolioValue - rebalanceFee;
+      for (const asset of normalizedAssets) {
+        const price = pricesByCoin.get(asset.coinId) || getPriceOnOrBefore(asset.prices, date)?.close || 0;
+        const targetValue = netPortfolioValue * (asset.allocationPercent / 100);
+        holdings.set(asset.coinId, price > 0 ? targetValue / price : 0);
+        const coinTotals = totalsByCoin.get(asset.coinId);
+        coinTotals.totalCoin = holdings.get(asset.coinId) || 0;
+      }
+      grossPortfolioValue = netPortfolioValue;
+      rebalanceFees += rebalanceFee;
+      lastRebalanceDate = date;
+      rebalances.push({
+        date,
+        turnover,
+        fee: rebalanceFee,
+        portfolioValue: netPortfolioValue
+      });
+    }
+
     const sellFee = grossPortfolioValue * feeRate;
 
     orders.push(...dayOrders);
@@ -355,6 +407,7 @@ export function simulatePortfolioDCA(assets, purchaseDates, amountPerPurchase, f
       date,
       amount,
       fee: dayOrders.reduce((sum, order) => sum + order.fee, 0),
+      rebalanceFee,
       totalInvested,
       portfolioValue: grossPortfolioValue - sellFee,
       orders: dayOrders
@@ -390,15 +443,17 @@ export function simulatePortfolioDCA(assets, purchaseDates, amountPerPurchase, f
   return {
     totalInvested,
     buyFees,
+    rebalanceFees,
     sellFee,
-    totalFees: buyFees + sellFee,
+    totalFees: buyFees + rebalanceFees + sellFee,
     grossCurrentValue,
     currentValue,
     pnlUSD,
     pnlPercent: (pnlUSD / totalInvested) * 100,
     assets: assetsResult,
     snapshots,
-    orders
+    orders,
+    rebalances
   };
 }
 
@@ -465,21 +520,78 @@ export function calculateYearlyCagr(snapshots) {
     lastSnapshotByYear.set(year, snapshot);
   }
 
+  let previousSnapshot = null;
   return Array.from(lastSnapshotByYear.entries()).map(([year, snapshot]) => {
     const snapshotDate = new Date(`${snapshot.date}T00:00:00Z`);
     const elapsedDays = Math.max(1, (snapshotDate.getTime() - firstDate.getTime()) / ONE_DAY_MS);
     const elapsedYears = elapsedDays / 365.25;
     const multiple = snapshot.totalInvested > 0 ? snapshot.portfolioValue / snapshot.totalInvested : 0;
     const cagrPercent = multiple > 0 ? (multiple ** (1 / elapsedYears) - 1) * 100 : 0;
+    const yoyReturnPercent =
+      previousSnapshot && previousSnapshot.portfolioValue > 0
+        ? (snapshot.portfolioValue / previousSnapshot.portfolioValue - 1) * 100
+        : null;
+    previousSnapshot = snapshot;
 
     return {
       year,
       date: snapshot.date,
       totalInvested: snapshot.totalInvested,
       portfolioValue: snapshot.portfolioValue,
-      cagrPercent
+      cagrPercent,
+      yoyReturnPercent
     };
   });
+}
+
+export function calculateMaxDrawdown(snapshots) {
+  if (!Array.isArray(snapshots) || snapshots.length === 0) {
+    return { percent: 0, value: 0, peakDate: null, troughDate: null };
+  }
+
+  let peak = snapshots[0].portfolioValue;
+  let peakDate = snapshots[0].date;
+  let maxDrawdown = 0;
+  let maxDrawdownValue = 0;
+  let troughDate = snapshots[0].date;
+  let drawdownPeakDate = peakDate;
+
+  for (const snapshot of snapshots) {
+    if (snapshot.portfolioValue > peak) {
+      peak = snapshot.portfolioValue;
+      peakDate = snapshot.date;
+    }
+
+    if (peak <= 0) continue;
+    const drawdownValue = peak - snapshot.portfolioValue;
+    const drawdownPercent = (drawdownValue / peak) * 100;
+    if (drawdownPercent > maxDrawdown) {
+      maxDrawdown = drawdownPercent;
+      maxDrawdownValue = drawdownValue;
+      troughDate = snapshot.date;
+      drawdownPeakDate = peakDate;
+    }
+  }
+
+  return {
+    percent: maxDrawdown,
+    value: maxDrawdownValue,
+    peakDate: drawdownPeakDate,
+    troughDate
+  };
+}
+
+export function calculateYearExtremes(yearlyRows) {
+  const rows = yearlyRows.filter((row) => row.yoyReturnPercent !== null);
+  if (rows.length === 0) return { best: null, worst: null };
+
+  return rows.reduce(
+    (extremes, row) => ({
+      best: !extremes.best || row.yoyReturnPercent > extremes.best.yoyReturnPercent ? row : extremes.best,
+      worst: !extremes.worst || row.yoyReturnPercent < extremes.worst.yoyReturnPercent ? row : extremes.worst
+    }),
+    { best: null, worst: null }
+  );
 }
 
 export function clearPriceCacheForTests() {

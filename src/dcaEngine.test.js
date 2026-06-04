@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  calculateMaxDrawdown,
+  calculateYearExtremes,
   calculateYearlyCagr,
   generatePurchaseDates,
   getPriceOnOrBefore,
@@ -175,6 +177,43 @@ test("portfolio lump sum aggregates asset values", () => {
   assert.equal(result.pnlPercent, 100);
 });
 
+test("portfolio DCA can rebalance back to target allocations", () => {
+  const result = simulatePortfolioDCA(
+    [
+      {
+        coinId: "bitcoin",
+        symbol: "BTC",
+        name: "Bitcoin",
+        allocationPercent: 50,
+        currentPrice: 400,
+        prices: [
+          { date: "2024-01-01", close: 100 },
+          { date: "2024-02-01", close: 200 }
+        ]
+      },
+      {
+        coinId: "ethereum",
+        symbol: "ETH",
+        name: "Ethereum",
+        allocationPercent: 50,
+        currentPrice: 100,
+        prices: [
+          { date: "2024-01-01", close: 100 },
+          { date: "2024-02-01", close: 100 }
+        ]
+      }
+    ],
+    ["2024-01-01", "2024-02-01"],
+    100,
+    0,
+    { rebalanceFrequency: "monthly" }
+  );
+
+  assert.equal(result.rebalances.length, 2);
+  assert.equal(result.rebalances[0].turnover, 0);
+  assert.ok(result.rebalances[1].turnover > 0);
+});
+
 test("yearly CAGR uses the last snapshot of each year", () => {
   const result = calculateYearlyCagr([
     { date: "2024-01-01", totalInvested: 100, portfolioValue: 100 },
@@ -188,4 +227,31 @@ test("yearly CAGR uses the last snapshot of each year", () => {
   assert.equal(result[1].year, "2025");
   assert.equal(result[1].date, "2025-12-31");
   assert.ok(result[1].cagrPercent > 40);
+  assert.equal(result[0].yoyReturnPercent, null);
+  assert.equal(result[1].yoyReturnPercent, 100);
+});
+
+test("max drawdown finds largest peak to trough decline", () => {
+  const result = calculateMaxDrawdown([
+    { date: "2024-01-01", portfolioValue: 100 },
+    { date: "2024-02-01", portfolioValue: 150 },
+    { date: "2024-03-01", portfolioValue: 90 },
+    { date: "2024-04-01", portfolioValue: 120 }
+  ]);
+
+  assert.equal(result.percent, 40);
+  assert.equal(result.value, 60);
+  assert.equal(result.peakDate, "2024-02-01");
+  assert.equal(result.troughDate, "2024-03-01");
+});
+
+test("year extremes use YoY returns", () => {
+  const result = calculateYearExtremes([
+    { year: "2024", yoyReturnPercent: null },
+    { year: "2025", yoyReturnPercent: 25 },
+    { year: "2026", yoyReturnPercent: -10 }
+  ]);
+
+  assert.equal(result.best.year, "2025");
+  assert.equal(result.worst.year, "2026");
 });

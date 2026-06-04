@@ -10,3 +10,7 @@ yarn-error.log*
 pnpm-debug.log*
 .app.pid
 .app.log
+.app-api.pid
+.app-web.pid
+.app-api.log
+.app-web.log

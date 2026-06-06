@@ -88,6 +88,17 @@ const LANGUAGES = [
   { value: "ko", label: "한국어" }
 ];
 
+const SURVEY_STORAGE_KEY = "checkool-survey-dismissed-v1";
+const SURVEY_FEATURES = [
+  "portfolioBacktests",
+  "riskMetrics",
+  "alerts",
+  "taxExport",
+  "moreData",
+  "mobileUx"
+];
+const GITHUB_ISSUE_URL = "https://github.com/hieunv6/checkool/issues/new";
+
 const TRANSLATIONS = {
   vi: {
     subtitle: "Backtest chiến lược mua coin định kỳ bằng dữ liệu thị trường lịch sử.",
@@ -109,6 +120,22 @@ const TRANSLATIONS = {
     equalWeightStrategy: "Chia đều",
     primaryOnlyStrategy: "Coin đầu tiên 100%",
     exportCsv: "Export CSV",
+    survey: {
+      title: "Cảm ơn bạn đã dùng Checkool",
+      body: "Mình đang cải thiện công cụ này. Bạn muốn ưu tiên thêm tính năng nào tiếp theo?",
+      question: "Bạn cần gì nhất?",
+      placeholder: "Góp ý thêm nếu bạn muốn...",
+      send: "Gửi góp ý",
+      later: "Để sau",
+      options: {
+        portfolioBacktests: "So sánh nhiều danh mục hơn",
+        riskMetrics: "Thêm chỉ số rủi ro",
+        alerts: "Cảnh báo giá / nhắc lịch DCA",
+        taxExport: "Export báo cáo thuế",
+        moreData: "Thêm dữ liệu coin / nguồn dữ liệu",
+        mobileUx: "Cải thiện trải nghiệm mobile"
+      }
+    },
     amountLabel: "Số tiền mỗi lần mua (USD)",
     feeLabel: "Phí mỗi lần mua/bán (%)",
     feeHelp: "Áp dụng cho mỗi lần mua và phí bán ước tính khi tính giá trị hiện tại.",
@@ -200,6 +227,22 @@ const TRANSLATIONS = {
     equalWeightStrategy: "Equal weight",
     primaryOnlyStrategy: "First coin 100%",
     exportCsv: "Export CSV",
+    survey: {
+      title: "Thanks for using Checkool",
+      body: "I am improving this tool. Which feature should be prioritized next?",
+      question: "What do you need most?",
+      placeholder: "Add more context if you want...",
+      send: "Send feedback",
+      later: "Maybe later",
+      options: {
+        portfolioBacktests: "Compare more portfolios",
+        riskMetrics: "More risk metrics",
+        alerts: "Price alerts / DCA reminders",
+        taxExport: "Tax report export",
+        moreData: "More coin data / data sources",
+        mobileUx: "Better mobile experience"
+      }
+    },
     amountLabel: "Amount per purchase (USD)",
     feeLabel: "Fee per buy/sell (%)",
     feeHelp: "Applied to every purchase and the estimated sale fee used for current value.",
@@ -1099,6 +1142,78 @@ function SimpleDropdown({ label, value, options, onChange, className = "" }) {
   );
 }
 
+function FeatureSurveyModal({ copy, feature, isOpen, note, onClose, onFeatureChange, onNoteChange, onSubmit }) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[70] grid place-items-center bg-slate-950/45 px-4 py-6">
+      <div className="w-full max-w-md rounded-lg border border-line bg-white p-4 shadow-2xl sm:p-5">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-ink">{copy.title}</h2>
+            <p className="mt-2 text-sm text-muted">{copy.body}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={copy.later}
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-line text-lg font-semibold text-muted transition hover:border-brand hover:bg-teal-50 hover:text-brand"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="mt-4 grid gap-2">
+          <p className="text-sm font-semibold text-ink">{copy.question}</p>
+          {SURVEY_FEATURES.map((featureId) => (
+            <label
+              key={featureId}
+              className={`flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 text-sm transition ${
+                feature === featureId ? "border-brand bg-teal-50 text-ink" : "border-line text-muted hover:border-brand"
+              }`}
+            >
+              <input
+                type="radio"
+                name="feature-survey"
+                value={featureId}
+                checked={feature === featureId}
+                onChange={(event) => onFeatureChange(event.target.value)}
+                className="h-4 w-4 accent-brand"
+              />
+              <span className="font-medium">{copy.options[featureId]}</span>
+            </label>
+          ))}
+        </div>
+
+        <textarea
+          value={note}
+          onChange={(event) => onNoteChange(event.target.value)}
+          placeholder={copy.placeholder}
+          rows={3}
+          className="mt-4 w-full resize-none rounded-lg border border-line px-3 py-2 text-sm text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
+        />
+
+        <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-10 rounded-lg border border-line px-4 text-sm font-semibold text-muted transition hover:border-brand hover:bg-teal-50 hover:text-brand"
+          >
+            {copy.later}
+          </button>
+          <button
+            type="button"
+            onClick={onSubmit}
+            className="h-10 rounded-lg bg-brand px-4 text-sm font-semibold text-white transition hover:bg-teal-800"
+          >
+            {copy.send}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function buildStrategyComparisons(assetData, purchaseDates, amount, feePercent, rebalanceFrequency) {
   if (assetData.length === 0) return [];
 
@@ -1164,9 +1279,14 @@ export default function App() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [isSurveyOpen, setIsSurveyOpen] = useState(false);
+  const [surveyFeature, setSurveyFeature] = useState("portfolioBacktests");
+  const [surveyNote, setSurveyNote] = useState("");
   const hasAutoRunRef = useRef(false);
+  const hasSurveyPromptedRef = useRef(false);
   const isNarrowChart = useIsNarrowViewport(768);
   const t = TRANSLATIONS[language] || TRANSLATIONS.vi;
+  const surveyCopy = t.survey || TRANSLATIONS.en.survey;
   const portfolioCoins = form.portfolio.map((item) => ({
     ...item,
     coin: getCoinMeta(coins, item.coinId)
@@ -1300,6 +1420,15 @@ export default function App() {
     }
   }, [currency, form, language, result]);
 
+  useEffect(() => {
+    if (!result || hasSurveyPromptedRef.current || typeof window === "undefined") return undefined;
+    if (window.localStorage.getItem(SURVEY_STORAGE_KEY) === "1") return undefined;
+
+    hasSurveyPromptedRef.current = true;
+    const timer = window.setTimeout(() => setIsSurveyOpen(true), 900);
+    return () => window.clearTimeout(timer);
+  }, [result]);
+
   const chartData = useMemo(() => {
     if (!result) return [];
     return result.dca.snapshots.map((point) => ({
@@ -1416,6 +1545,33 @@ export default function App() {
     ];
 
     downloadCsv(`checkool-${form.startDate}-${form.endDate}.csv`, rows);
+  }
+
+  function closeSurvey() {
+    window.localStorage.setItem(SURVEY_STORAGE_KEY, "1");
+    setIsSurveyOpen(false);
+  }
+
+  function submitSurvey() {
+    const featureLabel = surveyCopy.options[surveyFeature] || surveyFeature;
+    const body = [
+      `Feature: ${featureLabel}`,
+      "",
+      "Context:",
+      `- Language: ${language}`,
+      `- Portfolio: ${form.portfolio.map((item) => `${item.coinId} ${item.allocation}%`).join(" / ")}`,
+      `- Frequency: ${form.frequency}`,
+      `- Rebalance: ${form.rebalanceFrequency}`,
+      "",
+      "Note:",
+      surveyNote.trim() || "(No extra note)"
+    ].join("\n");
+    const params = new URLSearchParams({
+      title: `Feature request: ${featureLabel}`,
+      body
+    });
+    window.open(`${GITHUB_ISSUE_URL}?${params.toString()}`, "_blank", "noopener,noreferrer");
+    closeSurvey();
   }
 
   return (
@@ -1888,6 +2044,17 @@ export default function App() {
           {isLoading ? t.loading : t.submit}
         </button>
       </div>
+
+      <FeatureSurveyModal
+        copy={surveyCopy}
+        feature={surveyFeature}
+        isOpen={isSurveyOpen}
+        note={surveyNote}
+        onClose={closeSurvey}
+        onFeatureChange={setSurveyFeature}
+        onNoteChange={setSurveyNote}
+        onSubmit={submitSurvey}
+      />
     </main>
   );
 }

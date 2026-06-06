@@ -676,7 +676,7 @@ function serializePortfolio(portfolio) {
 
 function readInitialState() {
   const params = new URLSearchParams(window.location.search);
-  const lang = LANGUAGES.some((language) => language.value === params.get("lang")) ? params.get("lang") : "vi";
+  const lang = LANGUAGES.some((language) => language.value === params.get("lang")) ? params.get("lang") : "en";
   return {
     form: {
       portfolio: parsePortfolioParam(params),

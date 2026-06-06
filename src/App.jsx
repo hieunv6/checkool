@@ -206,6 +206,12 @@ const TRANSLATIONS = {
     },
     warnings: {
       clampedStart: `Dữ liệu thị trường bắt đầu từ ${EARLIEST_MARKET_DATE}; đã dùng ngày này thay cho ngày bắt đầu.`
+    },
+    fitChartLabel: "Co giãn biểu đồ",
+    scrollChartLabel: "Cuộn ngang chi tiết",
+    tabs: {
+      inputs: "Nhập thông tin",
+      results: "Xem kết quả"
     }
   },
   en: {
@@ -313,6 +319,12 @@ const TRANSLATIONS = {
     },
     warnings: {
       clampedStart: `Market data starts on ${EARLIEST_MARKET_DATE}; this date was used as the start date.`
+    },
+    fitChartLabel: "Fit to screen",
+    scrollChartLabel: "Scroll horizontally",
+    tabs: {
+      inputs: "Inputs",
+      results: "Results"
     }
   },
   es: {
@@ -404,6 +416,12 @@ const TRANSLATIONS = {
     },
     warnings: {
       clampedStart: `Los datos de mercado empiezan el ${EARLIEST_MARKET_DATE}; se usó esa fecha como inicio.`
+    },
+    fitChartLabel: "Ajustar a pantalla",
+    scrollChartLabel: "Desplazamiento horizontal",
+    tabs: {
+      inputs: "Datos",
+      results: "Resultados"
     }
   },
   zh: {
@@ -495,6 +513,12 @@ const TRANSLATIONS = {
     },
     warnings: {
       clampedStart: `市场数据从 ${EARLIEST_MARKET_DATE} 开始；已使用该日期作为开始日期。`
+    },
+    fitChartLabel: "适应屏幕",
+    scrollChartLabel: "横向滚动",
+    tabs: {
+      inputs: "输入参数",
+      results: "计算结果"
     }
   },
   ja: {
@@ -586,6 +610,12 @@ const TRANSLATIONS = {
     },
     warnings: {
       clampedStart: `市場データは ${EARLIEST_MARKET_DATE} から始まるため、この日付を開始日として使用しました。`
+    },
+    fitChartLabel: "画面に合わせる",
+    scrollChartLabel: "横スクロール",
+    tabs: {
+      inputs: "入力条件",
+      results: "計算結果"
     }
   },
   ko: {
@@ -677,6 +707,12 @@ const TRANSLATIONS = {
     },
     warnings: {
       clampedStart: `시장 데이터는 ${EARLIEST_MARKET_DATE}부터 시작되어 해당 날짜를 시작일로 사용했습니다.`
+    },
+    fitChartLabel: "화면에 맞춤",
+    scrollChartLabel: "가로 스크롤",
+    tabs: {
+      inputs: "입력값",
+      results: "결과"
     }
   }
 };
@@ -1273,6 +1309,8 @@ export default function App() {
   const [form, setForm] = useState(initialState.form);
   const [currency, setCurrency] = useState(initialState.currency);
   const [language, setLanguage] = useState(initialState.language);
+  const [activeMobileTab, setActiveMobileTab] = useState("inputs");
+  const [fitChartMobile, setFitChartMobile] = useState(true);
   const [coins, setCoins] = useState([]);
   const [usdVndRate, setUsdVndRate] = useState(25400);
   const [result, setResult] = useState(null);
@@ -1382,6 +1420,8 @@ export default function App() {
         effectiveStart: clampedStart
       });
 
+      setActiveMobileTab("results");
+
       if (countSurvey && typeof window !== "undefined" && window.localStorage.getItem(SURVEY_STORAGE_KEY) !== "1") {
         const currentCount = Number(window.localStorage.getItem(SURVEY_CALCULATION_COUNT_KEY) || "0");
         const nextCount = currentCount + 1;
@@ -1462,10 +1502,10 @@ export default function App() {
     ? { top: 8, right: 2, left: -22, bottom: 0 }
     : { top: 12, right: 12, left: 0, bottom: 0 };
   const chartScrollWidth = useMemo(() => {
-    if (!isNarrowChart) return "100%";
+    if (!isNarrowChart || fitChartMobile) return "100%";
     const pointWidth = form.frequency === "daily" ? 5 : form.frequency === "monthly" ? 22 : 12;
     return `${Math.min(7200, Math.max(960, chartData.length * pointWidth))}px`;
-  }, [chartData.length, form.frequency, isNarrowChart]);
+  }, [chartData.length, form.frequency, isNarrowChart, fitChartMobile]);
   const pnlTone = result?.dca.pnlUSD >= 0 ? "gain" : "loss";
   const shareUrl = buildShareUrl(form, currency, language);
 
@@ -1554,26 +1594,33 @@ export default function App() {
     setIsSurveyOpen(false);
   }
 
-  function submitSurvey() {
-    const featureLabel = surveyCopy.options[surveyFeature] || surveyFeature;
-    const body = [
-      `Feature: ${featureLabel}`,
-      "",
-      "Context:",
-      `- Language: ${language}`,
-      `- Portfolio: ${form.portfolio.map((item) => `${item.coinId} ${item.allocation}%`).join(" / ")}`,
-      `- Frequency: ${form.frequency}`,
-      `- Rebalance: ${form.rebalanceFrequency}`,
-      "",
-      "Note:",
-      surveyNote.trim() || "(No extra note)"
-    ].join("\n");
-    const params = new URLSearchParams({
-      title: `Feature request: ${featureLabel}`,
-      body
-    });
-    window.open(`${GITHUB_ISSUE_URL}?${params.toString()}`, "_blank", "noopener,noreferrer");
-    closeSurvey();
+  async function submitSurvey() {
+    try {
+      const payload = {
+        feature: surveyFeature,
+        note: surveyNote.trim(),
+        language,
+        portfolio: serializePortfolio(form.portfolio),
+        frequency: form.frequency,
+        rebalanceFrequency: form.rebalanceFrequency
+      };
+
+      const response = await fetch("/api/survey/feedback", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to submit feedback to server");
+      }
+    } catch (submitError) {
+      console.error("Error submitting survey feedback:", submitError);
+    } finally {
+      closeSurvey();
+    }
   }
 
   return (
@@ -1610,8 +1657,35 @@ export default function App() {
         </div>
       </header>
 
-      <div className="mx-auto grid max-w-6xl gap-4 px-3 py-4 sm:gap-6 sm:px-6 sm:py-6 lg:grid-cols-[360px_minmax(0,1fr)]">
-        <section className="h-fit rounded-lg border border-line bg-panel p-4 shadow-sm sm:p-5 lg:sticky lg:top-4">
+      <div className="mx-auto max-w-6xl px-3 py-4 sm:px-6 sm:py-6">
+        {/* Mobile Tabs */}
+        {result ? (
+          <div className="mb-4 flex rounded-lg border border-line bg-panel p-1 lg:hidden">
+            <button
+              type="button"
+              onClick={() => setActiveMobileTab("inputs")}
+              className={`h-10 flex-1 rounded-md text-sm font-semibold transition ${
+                activeMobileTab === "inputs" ? "bg-brand text-white shadow-sm" : "text-muted hover:text-ink"
+              }`}
+            >
+              {t.tabs?.inputs || "Inputs"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveMobileTab("results")}
+              className={`h-10 flex-1 rounded-md text-sm font-semibold transition ${
+                activeMobileTab === "results" ? "bg-brand text-white shadow-sm" : "text-muted hover:text-ink"
+              }`}
+            >
+              {t.tabs?.results || "Results"}
+            </button>
+          </div>
+        ) : null}
+
+        <div className="grid gap-4 sm:gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
+          <section className={`h-fit rounded-lg border border-line bg-panel p-4 shadow-sm sm:p-5 lg:sticky lg:top-4 fade-in ${
+            activeMobileTab === "inputs" ? "block" : "hidden lg:block"
+          }`}>
           <h2 className="text-lg font-semibold text-ink">{t.inputTitle}</h2>
           <div className="mt-5 grid gap-4">
             <PortfolioAllocationEditor
@@ -1689,7 +1763,9 @@ export default function App() {
           </div>
         </section>
 
-        <section className="grid min-w-0 gap-4 sm:gap-6">
+          <section className={`grid min-w-0 gap-4 sm:gap-6 fade-in ${
+            activeMobileTab === "results" ? "block" : "hidden lg:grid"
+          }`}>
           {warning ? <div className="rounded-lg border border-gold/30 bg-amber-50 p-4 text-sm text-amber-800">{warning}</div> : null}
           {error ? <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-loss">{error}</div> : null}
 
@@ -1743,12 +1819,36 @@ export default function App() {
                       </p>
                     </div>
                   </div>
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted md:flex-col md:items-end md:gap-y-0.5">
-                    {result.assets.map((asset) => (
-                      <p key={asset.coinId}>
-                        {asset.symbol}: {money(asset.currentPrice)}
-                      </p>
-                    ))}
+                  <div className="flex flex-col gap-2 md:items-end">
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted md:flex-col md:items-end md:gap-y-0.5">
+                      {result.assets.map((asset) => (
+                        <p key={asset.coinId}>
+                          {asset.symbol}: {money(asset.currentPrice)}
+                        </p>
+                      ))}
+                    </div>
+                    {isNarrowChart ? (
+                      <div className="inline-flex rounded-lg border border-line bg-[#F8FAFC] p-0.5 self-start md:self-auto">
+                        <button
+                          type="button"
+                          onClick={() => setFitChartMobile(true)}
+                          className={`rounded-md px-3 py-1 text-[11px] font-semibold transition ${
+                            fitChartMobile ? "bg-brand text-white shadow-sm" : "text-muted hover:text-ink"
+                          }`}
+                        >
+                          {t.fitChartLabel || "Fit screen"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setFitChartMobile(false)}
+                          className={`rounded-md px-3 py-1 text-[11px] font-semibold transition ${
+                            !fitChartMobile ? "bg-brand text-white shadow-sm" : "text-muted hover:text-ink"
+                          }`}
+                        >
+                          {t.scrollChartLabel || "Scroll detail"}
+                        </button>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
                 <div className="chart-scroll min-w-0 overflow-x-auto overflow-y-hidden rounded-md">
@@ -1798,7 +1898,8 @@ export default function App() {
 
               <section className="rounded-lg border border-line bg-panel p-3 shadow-sm sm:p-4">
                 <h2 className="text-lg font-semibold text-ink">{t.holdingsTitle}</h2>
-                <div className="mt-4 overflow-x-auto rounded-lg border border-line">
+                {/* Desktop View Table */}
+                <div className="hidden mt-4 overflow-x-auto rounded-lg border border-line sm:block">
                   <table className="w-full border-collapse bg-white text-left text-xs sm:text-sm">
                     <thead className="bg-[#F8FAFC] text-muted">
                       <tr className="border-b border-line">
@@ -1828,6 +1929,47 @@ export default function App() {
                     </tbody>
                   </table>
                 </div>
+                {/* Mobile View Cards */}
+                <div className="mt-4 grid gap-3 sm:hidden">
+                  {result.dca.assets.map((asset) => (
+                    <div key={asset.coinId} className="rounded-lg border border-line bg-white p-4 shadow-sm fade-in">
+                      <div className="flex items-center justify-between border-b border-line pb-2 mb-3">
+                        <span className="font-bold text-ink">{asset.name}</span>
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded bg-teal-50 text-brand">
+                          {asset.symbol}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-y-3 gap-x-2 text-xs">
+                        <div>
+                          <p className="text-muted">{t.totalInvested}</p>
+                          <p className="font-semibold text-ink mt-0.5">{money(asset.totalInvested)}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted">{t.totalBtc}</p>
+                          <p className="font-semibold text-ink mt-0.5">{formatCoinAmount(asset.totalCoin, asset.symbol)}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted">{t.avgCost}</p>
+                          <p className="font-semibold text-ink mt-0.5">{money(asset.avgCost)}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted">{t.totalFees}</p>
+                          <p className="font-semibold text-ink mt-0.5">{money(asset.totalFees)}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted">{t.currentValue}</p>
+                          <p className="font-semibold text-ink mt-0.5">{money(asset.currentValue)}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted">{t.pnl}</p>
+                          <p className={`font-bold mt-0.5 ${asset.pnlUSD >= 0 ? "text-gain" : "text-loss"}`}>
+                            {money(asset.pnlUSD)} ({formatPercent(asset.pnlPercent)})
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </section>
 
               <section className="rounded-lg border border-line bg-panel p-3 shadow-sm sm:p-4">
@@ -1837,7 +1979,8 @@ export default function App() {
                     {result.dca.snapshots.length} {t.purchaseCount} {result.effectiveStart} - {form.endDate}
                   </p>
                 </div>
-                <div className="max-h-[420px] overflow-auto rounded-lg border border-line">
+                {/* Desktop View Table */}
+                <div className="hidden max-h-[420px] overflow-auto rounded-lg border border-line sm:block">
                   <table className="w-full border-collapse bg-white text-left text-xs sm:text-sm">
                     <thead className="sticky top-0 z-10 bg-[#F8FAFC] text-muted">
                       <tr className="border-b border-line">
@@ -1869,11 +2012,45 @@ export default function App() {
                     </tbody>
                   </table>
                 </div>
+                {/* Mobile View Cards */}
+                <div className="mt-4 max-h-[420px] overflow-y-auto grid gap-2 sm:hidden">
+                  {result.dca.orders.map((order) => (
+                    <div key={`${order.date}-${order.coinId}`} className="rounded-lg border border-line bg-white p-3 text-xs shadow-sm fade-in">
+                      <div className="flex items-center justify-between border-b border-line pb-1.5 mb-2">
+                        <span className="font-semibold text-ink">{order.date}</span>
+                        <span className="font-bold text-brand">{order.symbol}</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-y-1.5">
+                        <div className="flex justify-between pr-2 border-r border-line/50">
+                          <span className="text-muted">{t.orderPrice}:</span>
+                          <span className="font-medium text-ink">{money(order.price)}</span>
+                        </div>
+                        <div className="flex justify-between pl-2">
+                          <span className="text-muted">{t.orderAmount}:</span>
+                          <span className="font-medium text-ink">{money(order.amount)}</span>
+                        </div>
+                        <div className="flex justify-between pr-2 border-r border-line/50">
+                          <span className="text-muted">{t.orderFee}:</span>
+                          <span className="font-medium text-ink">{money(order.fee)}</span>
+                        </div>
+                        <div className="flex justify-between pl-2">
+                          <span className="text-muted">{t.orderCoinBought}:</span>
+                          <span className="font-medium text-ink">{formatCoinAmount(order.coinBought, order.symbol)}</span>
+                        </div>
+                        <div className="col-span-2 flex justify-between border-t border-line/35 pt-1.5 mt-0.5">
+                          <span className="text-muted">{t.orderTotalCoin}:</span>
+                          <span className="font-semibold text-ink">{formatCoinAmount(order.totalCoin, order.symbol)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </section>
 
               <section className="rounded-lg border border-line bg-panel p-3 shadow-sm sm:p-4">
                 <h2 className="text-lg font-semibold text-ink">{t.yearlyCagrTitle}</h2>
-                <div className="mt-4 overflow-x-auto rounded-lg border border-line">
+                {/* Desktop View Table */}
+                <div className="hidden mt-4 overflow-x-auto rounded-lg border border-line sm:block">
                   <table className="w-full border-collapse bg-white text-left text-xs sm:text-sm">
                     <thead className="bg-[#F8FAFC] text-muted">
                       <tr className="border-b border-line">
@@ -1911,11 +2088,45 @@ export default function App() {
                     </tbody>
                   </table>
                 </div>
+                {/* Mobile View Cards */}
+                <div className="mt-4 grid gap-2 sm:hidden">
+                  {yearlyCagr.map((row) => (
+                    <div key={row.year} className="rounded-lg border border-line bg-white p-3 text-xs shadow-sm fade-in">
+                      <div className="flex items-center justify-between border-b border-line pb-1.5 mb-2">
+                        <span className="font-bold text-ink">{row.year}</span>
+                        <span className="text-muted">{t.cagrDate}: {row.date}</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-y-1.5">
+                        <div className="flex justify-between pr-2 border-r border-line/50">
+                          <span className="text-muted">{t.totalInvested}:</span>
+                          <span className="font-medium text-ink">{money(row.totalInvested)}</span>
+                        </div>
+                        <div className="flex justify-between pl-2">
+                          <span className="text-muted">{t.cagrValue}:</span>
+                          <span className="font-medium text-ink">{money(row.portfolioValue)}</span>
+                        </div>
+                        <div className="flex justify-between pr-2 border-r border-line/50">
+                          <span className="text-muted">{t.cagrPercent}:</span>
+                          <span className={`font-semibold ${row.cagrPercent >= 0 ? "text-gain" : "text-loss"}`}>
+                            {formatPercent(row.cagrPercent)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between pl-2">
+                          <span className="text-muted">{t.yoyReturn}:</span>
+                          <span className={`font-semibold ${row.yoyReturnPercent === null ? "text-muted" : row.yoyReturnPercent >= 0 ? "text-gain" : "text-loss"}`}>
+                            {row.yoyReturnPercent === null ? "-" : formatPercent(row.yoyReturnPercent)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </section>
 
               <section className="rounded-lg border border-line bg-panel p-3 shadow-sm sm:p-4">
                 <h2 className="text-lg font-semibold text-ink">{t.strategyComparisonTitle}</h2>
-                <div className="mt-4 overflow-x-auto rounded-lg border border-line">
+                {/* Desktop View Table */}
+                <div className="hidden mt-4 overflow-x-auto rounded-lg border border-line sm:block">
                   <table className="w-full border-collapse bg-white text-left text-xs sm:text-sm">
                     <thead className="bg-[#F8FAFC] text-muted">
                       <tr className="border-b border-line">
@@ -1956,11 +2167,56 @@ export default function App() {
                     </tbody>
                   </table>
                 </div>
+                {/* Mobile View Cards */}
+                <div className="mt-4 grid gap-3 sm:hidden">
+                  {result.strategyComparisons.map((strategy) => {
+                    const strategyDrawdown = calculateMaxDrawdown(strategy.dca.snapshots);
+                    const strategyName =
+                      strategy.id === "current"
+                        ? t.currentStrategy
+                        : strategy.id === "equal"
+                          ? t.equalWeightStrategy
+                          : t.primaryOnlyStrategy;
+                    return (
+                      <div key={strategy.id} className="rounded-lg border border-line bg-white p-3 text-xs shadow-sm fade-in">
+                        <div className="flex items-center justify-between border-b border-line pb-1.5 mb-2">
+                          <span className="font-bold text-ink">{strategyName}</span>
+                          <span className="text-muted text-[10px] max-w-[60%] truncate" title={strategy.allocationText}>
+                            {strategy.allocationText}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-y-1.5">
+                          <div className="flex justify-between pr-2 border-r border-line/50">
+                            <span className="text-muted">{t.tableValue}:</span>
+                            <span className="font-medium text-ink">{money(strategy.dca.currentValue)}</span>
+                          </div>
+                          <div className="flex justify-between pl-2">
+                            <span className="text-muted">{t.maxDrawdown}:</span>
+                            <span className="font-semibold text-loss">{formatPercent(-strategyDrawdown.percent)}</span>
+                          </div>
+                          <div className="flex justify-between pr-2 border-r border-line/50">
+                            <span className="text-muted">{t.pnl}:</span>
+                            <span className={`font-semibold ${strategy.dca.pnlUSD >= 0 ? "text-gain" : "text-loss"}`}>
+                              {money(strategy.dca.pnlUSD)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between pl-2">
+                            <span className="text-muted">{t.pnlPercent}:</span>
+                            <span className={`font-semibold ${strategy.dca.pnlPercent >= 0 ? "text-gain" : "text-loss"}`}>
+                              {formatPercent(strategy.dca.pnlPercent)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </section>
 
               <section className="rounded-lg border border-line bg-panel p-3 shadow-sm sm:p-4">
                 <h2 className="text-lg font-semibold text-ink">{t.comparisonTitle}</h2>
-                <div className="mt-4 overflow-x-auto">
+                {/* Desktop View Table */}
+                <div className="hidden mt-4 overflow-x-auto sm:block">
                   <table className="w-full border-collapse text-left text-xs sm:text-sm">
                     <thead>
                       <tr className="border-b border-line text-muted">
@@ -2003,6 +2259,50 @@ export default function App() {
                     </tbody>
                   </table>
                 </div>
+                {/* Mobile View Cards */}
+                <div className="mt-4 grid gap-3 sm:hidden">
+                  {[
+                    {
+                      name: "DCA",
+                      fees: result.dca.totalFees,
+                      value: result.dca.currentValue,
+                      pnl: result.dca.pnlUSD,
+                      percent: result.dca.pnlPercent
+                    },
+                    {
+                      name: "Lump Sum",
+                      fees: result.lumpSum.totalFees,
+                      value: result.lumpSum.value,
+                      pnl: result.lumpSum.pnlUSD,
+                      percent: result.lumpSum.pnlPercent
+                    }
+                  ].map((strategy) => (
+                    <div key={strategy.name} className="rounded-lg border border-line bg-white p-3 text-xs shadow-sm fade-in">
+                      <div className="flex items-center justify-between border-b border-line pb-1.5 mb-2">
+                        <span className="font-bold text-ink">{strategy.name}</span>
+                        <span className="text-muted">{t.totalFees}: {money(strategy.fees)}</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-1">
+                        <div>
+                          <p className="text-muted text-[10px]">{t.tableValue}</p>
+                          <p className="font-semibold text-ink mt-0.5">{money(strategy.value)}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted text-[10px]">{t.pnl}</p>
+                          <p className={`font-semibold mt-0.5 ${strategy.pnl >= 0 ? "text-gain" : "text-loss"}`}>
+                            {money(strategy.pnl)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-muted text-[10px]">{t.pnlPercent}</p>
+                          <p className={`font-semibold mt-0.5 ${strategy.percent >= 0 ? "text-gain" : "text-loss"}`}>
+                            {formatPercent(strategy.percent)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </section>
 
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -2022,12 +2322,18 @@ export default function App() {
                     {t.exportCsv}
                   </button>
                 </div>
-                <p className="text-sm text-muted">{t.disclaimer}</p>
+                <div className="flex flex-col gap-1 text-left sm:text-right">
+                  <p className="text-sm text-muted">{t.disclaimer}</p>
+                  <a href="/feedback-check" className="text-xs font-semibold text-brand hover:underline mt-1 block">
+                    Feedback Dashboard
+                  </a>
+                </div>
               </div>
             </>
           ) : null}
         </section>
       </div>
+    </div>
 
       {/* Sticky bottom bar — chỉ hiện trên mobile/tablet */}
       <div

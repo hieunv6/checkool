@@ -89,6 +89,18 @@ async function initDb() {
       updated_at INTEGER NOT NULL
     )
   `);
+  await run(`
+    CREATE TABLE IF NOT EXISTS survey_feedback (
+      id INTEGER PRIMARY KEY,
+      feature TEXT NOT NULL,
+      note TEXT,
+      language TEXT NOT NULL,
+      portfolio TEXT NOT NULL,
+      frequency TEXT NOT NULL,
+      rebalance_frequency TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    )
+  `);
   const oldBtcTable = await get("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?", [
     "btc_daily_prices"
   ]);
@@ -397,6 +409,50 @@ async function getCurrentPrice(coinId) {
 await initDb();
 
 const app = express();
+app.use(express.json());
+
+app.post("/api/survey/feedback", async (request, response) => {
+  try {
+    const { feature, note, language, portfolio, frequency, rebalanceFrequency } = request.body;
+    if (!feature || !language || !portfolio || !frequency || !rebalanceFrequency) {
+      response.status(400).json({ error: "Missing required fields." });
+      return;
+    }
+    await run(
+      `
+        INSERT INTO survey_feedback (feature, note, language, portfolio, frequency, rebalance_frequency, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `,
+      [feature, note || "", language, portfolio, frequency, rebalanceFrequency, Date.now()]
+    );
+    response.json({ ok: true });
+  } catch (error) {
+    response.status(500).json({ error: error.message || "Failed to save feedback." });
+  }
+});
+
+app.get("/api/survey/feedback", async (request, response) => {
+  try {
+    const feedback = await all("SELECT * FROM survey_feedback ORDER BY created_at DESC");
+    response.json({ feedback });
+  } catch (error) {
+    response.status(500).json({ error: error.message || "Failed to load feedback." });
+  }
+});
+
+app.delete("/api/survey/feedback/:id", async (request, response) => {
+  try {
+    const id = Number(request.params.id);
+    await run("DELETE FROM survey_feedback WHERE id = ?", [id]);
+    response.json({ ok: true });
+  } catch (error) {
+    response.status(500).json({ error: error.message || "Failed to delete feedback." });
+  }
+});
+
+app.get("/feedback-check", (request, response) => {
+  response.sendFile(path.resolve("dist/feedback-check.html"));
+});
 
 app.get("/api/health", (request, response) => {
   response.json({ ok: true });

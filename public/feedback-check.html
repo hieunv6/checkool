@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Feedback Dashboard - Checkool</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --bg: #0f172a;
+        --panel: #1e293b;
+        --border: #334155;
+        --text: #f8fafc;
+        --text-muted: #94a3b8;
+        --brand: #0f766e;
+        --brand-light: #14b8a6;
+        --red: #ef4444;
+        --red-light: #f87171;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: 'Inter', -apple-system, sans-serif;
+        background-color: var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+        padding: 2rem 1rem;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
+      }
+
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 1.5rem;
+      }
+
+      h1 {
+        font-size: 1.75rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, #2dd4bf, #0f766e);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      .back-link {
+        color: var(--text-muted);
+        text-decoration: none;
+        font-size: 0.875rem;
+        font-weight: 500;
+        transition: color 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .back-link:hover {
+        color: var(--text);
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 1.5rem;
+      }
+
+      @media (max-width: 640px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .card {
+        background-color: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        position: relative;
+        transition: transform 0.2s, box-shadow 0.2s, opacity 0.3s, y 0.3s;
+        animation: fadeIn 0.3s ease-out forwards;
+      }
+
+      .card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px -10px rgba(0, 0, 0, 0.5);
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .card.deleting {
+        opacity: 0;
+        transform: scale(0.9);
+      }
+
+      .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 1rem;
+      }
+
+      .feature-badge {
+        font-size: 0.75rem;
+        font-weight: 600;
+        background-color: rgba(45, 212, 191, 0.1);
+        color: #2dd4bf;
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      .time {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+      }
+
+      .note {
+        font-size: 0.925rem;
+        line-height: 1.5;
+        color: #e2e8f0;
+        white-space: pre-wrap;
+        background-color: rgba(15, 23, 42, 0.3);
+        padding: 0.75rem;
+        border-radius: 8px;
+        border-left: 3px solid var(--brand-light);
+        min-height: 4rem;
+      }
+
+      .note.empty {
+        color: var(--text-muted);
+        font-style: italic;
+        border-left-color: var(--border);
+      }
+
+      .meta-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+        font-size: 0.75rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+        padding-top: 0.75rem;
+      }
+
+      .meta-item {
+        display: flex;
+        flex-direction: column;
+        gap: 0.125rem;
+      }
+
+      .meta-label {
+        color: var(--text-muted);
+      }
+
+      .meta-val {
+        font-weight: 500;
+        color: var(--text);
+        word-break: break-all;
+      }
+
+      .delete-btn {
+        position: absolute;
+        top: 1.25rem;
+        right: 1.25rem;
+        background: transparent;
+        border: none;
+        color: var(--text-muted);
+        font-size: 1.25rem;
+        cursor: pointer;
+        opacity: 0;
+        transition: opacity 0.2s, color 0.2s;
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .card:hover .delete-btn {
+        opacity: 1;
+      }
+
+      .delete-btn:hover {
+        color: var(--red-light);
+        background-color: rgba(239, 68, 68, 0.1);
+      }
+
+      .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        color: var(--text-muted);
+        font-size: 1rem;
+        border: 2px dashed var(--border);
+        border-radius: 12px;
+      }
+
+      .loading {
+        text-align: center;
+        padding: 4rem 2rem;
+        color: var(--brand-light);
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <div>
+          <h1>Checkool Feedback Dashboard</h1>
+          <p style="color: var(--text-muted); font-size: 0.875rem; margin-top: 0.25rem;">Quản lý và xem ý kiến phản hồi của người dùng</p>
+        </div>
+        <a href="/" class="back-link">
+          ← Về Trang Chủ
+        </a>
+      </header>
+
+      <main id="main">
+        <div class="loading">Đang tải dữ liệu...</div>
+      </main>
+    </div>
+
+    <script>
+      const FEATURE_LABELS = {
+        portfolioBacktests: "So sánh nhiều danh mục",
+        riskMetrics: "Thêm chỉ số rủi ro",
+        alerts: "Cảnh báo giá / DCA",
+        taxExport: "Báo cáo thuế",
+        moreData: "Thêm dữ liệu coin",
+        mobileUx: "Trải nghiệm mobile"
+      };
+
+      function formatTimeAgo(timestamp) {
+        const diffMs = Date.now() - timestamp;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHrs = Math.floor(diffMins / 60);
+        const diffDays = Math.floor(diffHrs / 24);
+
+        if (diffMins < 1) return "Vừa xong";
+        if (diffMins < 60) return `${diffMins} phút trước`;
+        if (diffHrs < 24) return `${diffHrs} giờ trước`;
+        return `${diffDays} ngày trước`;
+      }
+
+      async function deleteFeedback(id, btnElement) {
+        if (!confirm("Bạn có chắc chắn muốn xóa phản hồi này?")) return;
+
+        try {
+          const response = await fetch(`/api/survey/feedback/${id}`, {
+            method: "DELETE"
+          });
+          if (!response.ok) throw new Error("Delete failed");
+          
+          const card = btnElement.closest(".card");
+          card.classList.add("deleting");
+          setTimeout(() => {
+            card.remove();
+            const grid = document.querySelector(".grid");
+            if (grid && grid.children.length === 0) {
+              document.getElementById("main").innerHTML = '<div class="empty-state">Chưa có phản hồi nào được ghi nhận.</div>';
+            }
+          }, 300);
+        } catch (error) {
+          alert("Không thể xóa phản hồi. Vui lòng thử lại sau.");
+          console.error(error);
+        }
+      }
+
+      async function loadFeedback() {
+        const main = document.getElementById("main");
+        try {
+          const response = await fetch("/api/survey/feedback");
+          if (!response.ok) throw new Error("Failed to load");
+          
+          const { feedback } = await response.json();
+          if (!feedback || feedback.length === 0) {
+            main.innerHTML = '<div class="empty-state">Chưa có phản hồi nào được ghi nhận.</div>';
+            return;
+          }
+
+          let html = '<div class="grid">';
+          feedback.forEach((item) => {
+            const featureName = FEATURE_LABELS[item.feature] || item.feature;
+            const hasNote = item.note && item.note.trim().length > 0;
+            const noteText = hasNote ? item.note : "Không có góp ý thêm.";
+            const noteClass = hasNote ? "note" : "note empty";
+            
+            html += `
+              <div class="card">
+                <button type="button" class="delete-btn" onclick="deleteFeedback(${item.id}, this)">&times;</button>
+                <div class="card-header">
+                  <span class="feature-badge">${featureName}</span>
+                  <span class="time">${formatTimeAgo(item.created_at)}</span>
+                </div>
+                <div class="${noteClass}">${noteText}</div>
+                <div class="meta-grid">
+                  <div class="meta-item">
+                    <span class="meta-label">Ngôn ngữ</span>
+                    <span class="meta-val">${String(item.language).toUpperCase()}</span>
+                  </div>
+                  <div class="meta-item">
+                    <span class="meta-label">Tần suất</span>
+                    <span class="meta-val">${item.frequency}</span>
+                  </div>
+                  <div class="meta-item">
+                    <span class="meta-label">Rebalance</span>
+                    <span class="meta-val">${item.rebalance_frequency}</span>
+                  </div>
+                  <div class="meta-item">
+                    <span class="meta-label">Danh mục</span>
+                    <span class="meta-val" title="${item.portfolio}">${item.portfolio}</span>
+                  </div>
+                </div>
+              </div>
+            `;
+          });
+          html += '</div>';
+          main.innerHTML = html;
+        } catch (error) {
+          main.innerHTML = '<div class="empty-state" style="color: var(--red-light); border-color: var(--red);">Có lỗi xảy ra khi tải phản hồi. Vui lòng thử lại sau.</div>';
+          console.error(error);
+        }
+      }
+
+      document.addEventListener("DOMContentLoaded", loadFeedback);
+    </script>
+  </body>
+</html>

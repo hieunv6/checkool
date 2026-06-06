@@ -89,6 +89,7 @@ const LANGUAGES = [
 ];
 
 const SURVEY_STORAGE_KEY = "checkool-survey-dismissed-v1";
+const SURVEY_CALCULATION_COUNT_KEY = "checkool-survey-calculation-count-v1";
 const SURVEY_FEATURES = [
   "portfolioBacktests",
   "riskMetrics",
@@ -1314,7 +1315,7 @@ export default function App() {
   const formError = validateForm(form, t);
   const isInvalid = Boolean(formError);
 
-  const runCalculation = useCallback(async () => {
+  const runCalculation = useCallback(async ({ countSurvey = true } = {}) => {
     const validation = validateForm(form, t);
     if (validation) {
       setError(validation);
@@ -1381,6 +1382,16 @@ export default function App() {
         effectiveStart: clampedStart
       });
 
+      if (countSurvey && typeof window !== "undefined" && window.localStorage.getItem(SURVEY_STORAGE_KEY) !== "1") {
+        const currentCount = Number(window.localStorage.getItem(SURVEY_CALCULATION_COUNT_KEY) || "0");
+        const nextCount = currentCount + 1;
+        window.localStorage.setItem(SURVEY_CALCULATION_COUNT_KEY, String(nextCount));
+        if (nextCount >= 3 && !hasSurveyPromptedRef.current) {
+          hasSurveyPromptedRef.current = true;
+          window.setTimeout(() => setIsSurveyOpen(true), 700);
+        }
+      }
+
       window.history.replaceState(null, "", buildShareUrl({ ...form, startDate: clampedStart }, currency, language));
     } catch (calculationError) {
       setResult(null);
@@ -1410,7 +1421,7 @@ export default function App() {
   useEffect(() => {
     if (initialState.shouldAutoRun && !hasAutoRunRef.current) {
       hasAutoRunRef.current = true;
-      runCalculation();
+      runCalculation({ countSurvey: false });
     }
   }, [runCalculation]);
 
@@ -1419,15 +1430,6 @@ export default function App() {
       window.history.replaceState(null, "", buildShareUrl(form, currency, language));
     }
   }, [currency, form, language, result]);
-
-  useEffect(() => {
-    if (!result || hasSurveyPromptedRef.current || typeof window === "undefined") return undefined;
-    if (window.localStorage.getItem(SURVEY_STORAGE_KEY) === "1") return undefined;
-
-    hasSurveyPromptedRef.current = true;
-    const timer = window.setTimeout(() => setIsSurveyOpen(true), 900);
-    return () => window.clearTimeout(timer);
-  }, [result]);
 
   const chartData = useMemo(() => {
     if (!result) return [];
@@ -1679,7 +1681,7 @@ export default function App() {
             <button
               type="button"
               disabled={isInvalid || isLoading}
-              onClick={runCalculation}
+              onClick={() => runCalculation()}
               className="hidden h-11 w-full rounded-lg bg-brand px-4 text-sm font-semibold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-300 lg:block"
             >
               {isLoading ? t.loading : t.submit}
@@ -2038,7 +2040,7 @@ export default function App() {
         <button
           type="button"
           disabled={isInvalid || isLoading}
-          onClick={runCalculation}
+          onClick={() => runCalculation()}
           className="h-11 w-full rounded-lg bg-brand px-4 text-sm font-semibold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-300"
         >
           {isLoading ? t.loading : t.submit}

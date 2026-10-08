@@ -29,7 +29,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY package*.json ./
 
 # Install deps and force rebuild native modules for this platform
-RUN npm ci --omit=dev && npm rebuild sqlite3
+RUN npm_config_build_from_source=true npm ci --omit=dev
 
 COPY --from=builder /app/dist ./dist
 COPY server.js ./

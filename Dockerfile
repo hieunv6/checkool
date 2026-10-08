@@ -18,6 +18,7 @@ ENV NODE_ENV=production
 ENV API_PORT=8787
 ENV HOST=0.0.0.0
 
+# Install build tools needed to compile native addons (sqlite3)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     python3 \
@@ -26,7 +27,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY package*.json ./
-RUN npm ci --omit=dev
+
+# Install deps and force rebuild native modules for this platform
+RUN npm ci --omit=dev && npm rebuild sqlite3
 
 COPY --from=builder /app/dist ./dist
 COPY server.js ./

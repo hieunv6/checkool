@@ -1,0 +1,9 @@
+node_modules
+dist
+data
+logs
+.git
+.gitignore
+.claude
+.DS_Store
+*.log

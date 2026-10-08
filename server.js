@@ -626,7 +626,9 @@ app.get(/.*/, (request, response) => {
   response.sendFile(path.resolve("dist", "index.html"));
 });
 
-app.listen(PORT, "127.0.0.1", () => {
-  console.log(`API server running at http://127.0.0.1:${PORT}`);
+const HOST = process.env.HOST || "0.0.0.0";
+
+app.listen(PORT, HOST, () => {
+  console.log(`API server running at http://${HOST}:${PORT}`);
   console.log(`SQLite cache: ${DB_PATH}`);
 });

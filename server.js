@@ -4,7 +4,10 @@ import path from "node:path";
 import sqlite3 from "sqlite3";
 
 const MARKET_DATA_BASE_URL = "https://api.coingecko.com/api/v3";
-const EXCHANGE_DATA_BASE_URL = "https://api.binance.com/api/v3";
+const EXCHANGE_BINANCE_URLS = [
+  "https://api.binance.us/api/v3",
+  "https://api.binance.com/api/v3"
+];
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const EARLIEST_MARKET_DATE = "2017-08-17";
 const DB_DIR = path.resolve("data");
@@ -171,7 +174,11 @@ async function fetchWithRetry(url, retries = 3) {
   let lastError;
   for (let attempt = 0; attempt < retries; attempt += 1) {
     try {
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+      });
       if (response.status === 429 && attempt < retries - 1) {
         await new Promise((resolve) => setTimeout(resolve, 1200));
         continue;
@@ -260,34 +267,95 @@ async function getCoinSymbol(coinId) {
   return coin?.symbol || (coinId === "bitcoin" ? "BTC" : coinId.toUpperCase());
 }
 
+async function fetchGateIoCandles(symbol, startDate, endDate) {
+  const gatePair = `${symbol}_USDT`;
+  const candles = [];
+  let fromSec = Math.floor(parseDateKey(startDate).getTime() / 1000);
+  const toSec = Math.floor((parseDateKey(endDate).getTime() + ONE_DAY_MS - 1) / 1000);
+
+  while (fromSec <= toSec) {
+    const chunkToSec = Math.min(fromSec + 1000 * 86400, toSec);
+    const params = new URLSearchParams({
+      currency_pair: gatePair,
+      interval: "1d",
+      from: String(fromSec),
+      to: String(chunkToSec),
+      limit: "1000"
+    });
+    let rows;
+    try {
+      rows = await fetchWithRetry(`https://api.gateio.ws/api/v4/spot/candlesticks?${params.toString()}`);
+    } catch {
+      break;
+    }
+    if (!Array.isArray(rows) || rows.length === 0) break;
+
+    const sorted = [...rows].sort((a, b) => Number(a[0]) - Number(b[0]));
+    for (const row of sorted) {
+      candles.push({
+        date: toDateKey(new Date(Number(row[0]) * 1000)),
+        close: Number(row[2])
+      });
+    }
+
+    const lastTime = Number(sorted[sorted.length - 1][0]);
+    const nextFrom = lastTime + 86400;
+    if (nextFrom <= fromSec) break;
+    fromSec = nextFrom;
+  }
+  return candles;
+}
+
 async function fetchExchangeCandles(coinId, startDate, endDate) {
   const symbol = await getCoinSymbol(coinId);
   const pair = `${symbol}USDT`;
   const candles = [];
-  let cursor = parseDateKey(startDate).getTime();
-  const endTime = parseDateKey(endDate).getTime() + ONE_DAY_MS - 1;
+  const startMs = parseDateKey(startDate).getTime();
+  const endMs = parseDateKey(endDate).getTime() + ONE_DAY_MS - 1;
 
-  while (cursor <= endTime) {
-    const params = new URLSearchParams({
-      symbol: pair,
-      interval: "1d",
-      startTime: String(cursor),
-      endTime: String(endTime),
-      limit: "1000"
-    });
-    const rows = await fetchWithRetry(`${EXCHANGE_DATA_BASE_URL}/klines?${params.toString()}`);
-    if (!Array.isArray(rows) || rows.length === 0) break;
+  for (const baseUrl of EXCHANGE_BINANCE_URLS) {
+    let cursor = startMs;
+    candles.length = 0;
+    let failed = false;
 
-    for (const row of rows) {
-      candles.push({
-        date: toDateKey(new Date(row[0])),
-        close: Number(row[4])
+    while (cursor <= endMs) {
+      const params = new URLSearchParams({
+        symbol: pair,
+        interval: "1d",
+        startTime: String(cursor),
+        endTime: String(endMs),
+        limit: "1000"
       });
+      try {
+        const rows = await fetchWithRetry(`${baseUrl}/klines?${params.toString()}`);
+        if (!Array.isArray(rows) || rows.length === 0) break;
+
+        for (const row of rows) {
+          candles.push({
+            date: toDateKey(new Date(row[0])),
+            close: Number(row[4])
+          });
+        }
+
+        const nextCursor = Number(rows[rows.length - 1][0]) + ONE_DAY_MS;
+        if (nextCursor <= cursor) break;
+        cursor = nextCursor;
+      } catch {
+        failed = true;
+        break;
+      }
     }
 
-    const nextCursor = Number(rows[rows.length - 1][0]) + ONE_DAY_MS;
-    if (nextCursor <= cursor) break;
-    cursor = nextCursor;
+    if (!failed && candles.length > 0) {
+      return candles;
+    }
+  }
+
+  try {
+    const gateCandles = await fetchGateIoCandles(symbol, startDate, endDate);
+    if (gateCandles.length > 0) return gateCandles;
+  } catch (error) {
+    console.warn(`Gate.io fallback failed for ${symbol}:`, error.message);
   }
 
   return candles;
@@ -317,6 +385,9 @@ async function fetchMarketPrices(coinId, startDate, endDate) {
     }
   }
   const prices = Array.isArray(data?.prices) ? data.prices : [];
+  if (prices.length === 0) {
+    return fetchExchangeCandles(coinId, startDate, endDate);
+  }
   const byDate = new Map();
 
   for (const [timestamp, close] of prices) {
@@ -326,7 +397,11 @@ async function fetchMarketPrices(coinId, startDate, endDate) {
     }
   }
 
-  return Array.from(byDate.values()).filter((price) => Number.isFinite(price.close) && price.close > 0);
+  const result = Array.from(byDate.values()).filter((price) => Number.isFinite(price.close) && price.close > 0);
+  if (result.length === 0) {
+    return fetchExchangeCandles(coinId, startDate, endDate);
+  }
+  return result;
 }
 
 async function saveCoinPrices(coinId, prices) {
@@ -389,9 +464,36 @@ async function getCurrentPrice(coinId) {
     price = Number(data?.[coinId]?.usd);
   } catch {
     const symbol = await getCoinSymbol(coinId);
-    const data = await fetchWithRetry(`${EXCHANGE_DATA_BASE_URL}/ticker/price?symbol=${symbol}USDT`);
-    price = Number(data?.price);
+    let exchangePrice = null;
+
+    for (const baseUrl of EXCHANGE_BINANCE_URLS) {
+      try {
+        const data = await fetchWithRetry(`${baseUrl}/ticker/price?symbol=${symbol}USDT`);
+        const p = Number(data?.price);
+        if (Number.isFinite(p) && p > 0) {
+          exchangePrice = p;
+          break;
+        }
+      } catch {
+        // try next
+      }
+    }
+
+    if (!exchangePrice) {
+      try {
+        const tickers = await fetchWithRetry(`https://api.gateio.ws/api/v4/spot/tickers?currency_pair=${symbol}_USDT`);
+        const p = Number(tickers?.[0]?.last);
+        if (Number.isFinite(p) && p > 0) {
+          exchangePrice = p;
+        }
+      } catch {
+        // fallback failed
+      }
+    }
+
+    price = exchangePrice;
   }
+
   if (!Number.isFinite(price) || price <= 0) {
     throw new Error("Invalid current price.");
   }
